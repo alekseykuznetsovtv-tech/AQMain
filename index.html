@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Игровой Терминал</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            background-color: #0d0f12;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px;
+            margin: 0;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 460px;
+            background: #161a20;
+            border: 1px solid #2a303c;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+        .team-bar {
+            font-size: 0.85rem;
+            color: #8892b0;
+            border-bottom: 1px solid #2a303c;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .task-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #ffcc00;
+            margin-bottom: 12px;
+        }
+        .task-text {
+            font-size: 1.05rem;
+            line-height: 1.5;
+            color: #ffffff;
+            white-space: pre-line;
+            background: #0f1217;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffcc00;
+            margin-bottom: 25px;
+        }
+        .prompt-text {
+            font-size: 0.95rem;
+            color: #a8b2d1;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+        .code-input {
+            width: 100%;
+            padding: 14px;
+            font-size: 1.2rem;
+            background: #090b0e;
+            border: 2px solid #2a303c;
+            color: #00ff66;
+            text-align: center;
+            border-radius: 8px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            outline: none;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .code-input:focus {
+            border-color: #ffcc00;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #ffcc00;
+            color: #000;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+        .btn:active {
+            background: #e6b800;
+            transform: scale(0.99);
+        }
+        .msg {
+            font-size: 0.9rem;
+            text-align: center;
+            margin-top: 12px;
+            min-height: 24px;
+            font-weight: 600;
+        }
+        .msg-err { color: #ff4d4d; }
+        .msg-ok { color: #00ff66; }
+        .reset-btn {
+            background: none;
+            border: none;
+            color: #444c5e;
+            text-decoration: underline;
+            font-size: 0.75rem;
+            margin-top: 25px;
+            cursor: pointer;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Информация о команде -->
+        <div class="team-bar">
+            <span>Команда: <strong id="teamDisplay" style="color: #fff;">—</strong></span>
+            <span id="changeTeamBtn" style="cursor:pointer; text-decoration:underline;">Сменить</span>
+        </div>
+
+        <!-- Заголовок задания -->
+        <div id="taskTitle" class="task-title">Задание 1:</div>
+
+        <!-- Текст задания -->
+        <div id="taskText" class="task-text">Загрузка задания...</div>
+
+        <!-- Ввод кода -->
+        <div class="prompt-text">Для получения следующего задания введите код:</div>
+        <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
+        <button id="submitBtn" class="btn">ОТПРАВИТЬ КОД</button>
+        <div id="msgBox" class="msg"></div>
+
+        <button id="resetBtn" class="reset-btn">Сбросить прогресс (для оргов)</button>
+    </div>
+
+    <script>
+        // =================================================================
+        // 1. ССЫЛКА НА GOOGLE APPS SCRIPT (для отправки результатов ведущему)
+        // =================================================================
+        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/ВАШ_СКРИПТ_ИД/exec";
+
+        // =================================================================
+        // 2. СПИСОК ЗАДАНИЙ И КОДОВ
+        // =================================================================
+        const GAME_LEVELS = [
+            {
+                number: 1,
+                title: "Задание 1:",
+                clue: "Первый контейнер запрятан в районе посёлка Рудник.\n\nНайдите двухэтажное заброшенное здание у дороги и загляните под лестницу первого этажа.",
+                code: "ОБЩАК11"
+            },
+            {
+                number: 2,
+                title: "Задание 2:",
+                clue: "Второй ключ спрятан в гаражном массиве Воргашора.\n\nИщите крайний гараж с синими воротами. Код нанесён контрастной краской на торцевой стене.",
+                code: "КЭШБЭК22"
+            },
+            {
+                number: 3,
+                title: "Задание 3:",
+                clue: "Финальный объект — промзона на Цемзаводе.\n\nВведите код с опорного столба у въездных ворот, чтобы завершить эвакуацию!",
+                code: "ФИНАЛ777"
+            }
+        ];
+
+        // Состояние
+        let currentLevel = 0;
+        let teamName = "";
+
+        // UI Элементы
+        const taskTitle = document.getElementById('taskTitle');
+        const taskText = document.getElementById('taskText');
+        const codeInput = document.getElementById('codeInput');
+        const submitBtn = document.getElementById('submitBtn');
+        const msgBox = document.getElementById('msgBox');
+        const teamDisplay = document.getElementById('teamDisplay');
+
+        window.addEventListener('load', () => {
+            initTeam();
+            loadProgress();
+            renderLevel();
+        });
+
+        // Ввод / Сохранение названия команды
+        function initTeam() {
+            teamName = localStorage.getItem('syndicate_team_name') || "";
+            if (!teamName) {
+                teamName = prompt("Введите название вашей команды:") || "Анонимы";
+                localStorage.setItem('syndicate_team_name', teamName);
+            }
+            teamDisplay.textContent = teamName;
+        }
+
+        document.getElementById('changeTeamBtn').addEventListener('click', () => {
+            const newName = prompt("Введите новое название команды:", teamName);
+            if (newName) {
+                teamName = newName;
+                localStorage.setItem('syndicate_team_name', teamName);
+                teamDisplay.textContent = teamName;
+            }
+        });
+
+        // Загрузка и сохранение прогресса
+        function saveProgress() {
+            localStorage.setItem('syndicate_current_level', currentLevel);
+        }
+
+        function loadProgress() {
+            const savedLvl = localStorage.getItem('syndicate_current_level');
+            if (savedLvl !== null) currentLevel = parseInt(savedLvl);
+            if (currentLevel >= GAME_LEVELS.length) currentLevel = GAME_LEVELS.length;
+        }
+
+        // Отрисовка уровня
+        function renderLevel() {
+            if (currentLevel >= GAME_LEVELS.length) {
+                taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
+                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены, время зафиксировано у ведущего!";
+                codeInput.style.display = "none";
+                submitBtn.style.display = "none";
+                document.querySelector('.prompt-text').style.display = "none";
+                return;
+            }
+
+            const lvl = GAME_LEVELS[currentLevel];
+            taskTitle.textContent = lvl.title;
+            taskText.textContent = lvl.clue;
+        }
+
+        // Фоновая отправка данных ведущему в Google Таблицу
+        function sendResultToHost(levelTitle, userCode, isCorrect) {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
+
+            fetch(GOOGLE_SCRIPT_URL, {
+                method: "POST",
+                mode: "no-cors",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    team: teamName,
+                    level: levelTitle,
+                    code: userCode,
+                    status: isCorrect ? "ВЕРНО" : "НЕВЕРНО"
+                })
+            }).catch(err => console.log("Ошибка отправки ведущему:", err));
+        }
+
+        // Проверка кода
+        submitBtn.addEventListener('click', () => {
+            const userCode = codeInput.value.trim().toUpperCase();
+            const targetLevel = GAME_LEVELS[currentLevel];
+
+            if (!userCode) {
+                msgBox.className = "msg msg-err";
+                msgBox.textContent = "Введите код!";
+                return;
+            }
+
+            if (userCode === targetLevel.code.toUpperCase()) {
+                msgBox.className = "msg msg-ok";
+                msgBox.textContent = "✅ Код принят! Время зафиксировано.";
+                
+                // Отправляем время и данные ведущему
+                sendResultToHost(targetLevel.title, userCode, true);
+
+                codeInput.value = "";
+                currentLevel++;
+                saveProgress();
+
+                setTimeout(() => {
+                    msgBox.textContent = "";
+                    renderLevel();
+                }, 1500);
+            } else {
+                msgBox.className = "msg msg-err";
+                msgBox.textContent = "❌ Неверный код!";
+                
+                // Фиксируем неудачную попытку (по желанию)
+                sendResultToHost(targetLevel.title, userCode, false);
+            }
+        });
+
+        // Сброс прогресса
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (confirm("Сбросить текущий прогресс игры?")) {
+                localStorage.removeItem('syndicate_current_level');
+                currentLevel = 0;
+                location.reload();
+            }
+        });
+    </script>
+</body>
+</html>
