@@ -53,15 +53,11 @@
             margin-bottom: 25px;
             word-break: break-word;
         }
-        /* Стилизация ссылок в задании */
         .task-text a {
             color: #00ff66;
             text-decoration: underline;
             font-weight: 600;
             word-break: break-all;
-        }
-        .task-text a:active {
-            color: #ffcc00;
         }
         .prompt-text {
             font-size: 0.95rem;
@@ -82,10 +78,6 @@
             letter-spacing: 2px;
             outline: none;
             margin-bottom: 12px;
-            transition: border-color 0.2s;
-        }
-        .code-input:focus {
-            border-color: #ffcc00;
         }
         .code-input:disabled {
             background: #1f242d;
@@ -109,10 +101,6 @@
             color: #666;
             cursor: not-allowed;
         }
-        .btn:active:not(:disabled) {
-            background: #e6b800;
-            transform: scale(0.99);
-        }
         .msg {
             font-size: 0.9rem;
             text-align: center;
@@ -122,53 +110,33 @@
         }
         .msg-err { color: #ff4d4d; }
         .msg-ok { color: #00ff66; }
-        .reset-btn {
-            background: none;
-            border: none;
-            color: #444c5e;
-            text-decoration: underline;
-            font-size: 0.75rem;
-            margin-top: 25px;
-            cursor: pointer;
-            width: 100%;
-        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- Информация о команде -->
         <div class="team-bar">
             <span>Команда: <strong id="teamDisplay" style="color: #fff;">—</strong></span>
             <span id="changeTeamBtn" style="cursor:pointer; text-decoration:underline;">Сменить</span>
         </div>
 
-        <!-- Заголовок задания -->
         <div id="taskTitle" class="task-title">Загрузка...</div>
+        <div id="taskText" class="task-text">⏳ Подключение к серверу...</div>
 
-        <!-- Текст задания -->
-        <div id="taskText" class="task-text">⏳ Получение заданий из сервера...</div>
-
-        <!-- Ввод кода -->
         <div class="prompt-text">Для получения следующего задания введите код:</div>
         <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
         <button id="submitBtn" class="btn">ОТПРАВИТЬ КОД</button>
         <div id="msgBox" class="msg"></div>
-
-        <button id="resetBtn" class="reset-btn">Сбросить прогресс (для оргов)</button>
     </div>
 
     <script>
-        // =================================================================
-        // ССЫЛКА НА GOOGLE APPS SCRIPT
-        // =================================================================
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymyo45TOB3pzo61x6Vk4v1cG0URU69Xvcv6JsdvjqFzm9MYPDfiucojmM9FpE6igx9Tw/exec";
 
         let GAME_LEVELS = [];
         let currentLevel = 0;
         let teamName = "";
-        let wrongAttempts = 0;
         let lockoutTimer = null;
+        let isLocked = false;
 
         const taskTitle = document.getElementById('taskTitle');
         const taskText = document.getElementById('taskText');
@@ -179,103 +147,21 @@
 
         window.addEventListener('load', async () => {
             initTeam();
-            loadProgress();
-            await fetchLevelsFromGoogle();
-            renderLevel();
-            checkLockoutState();
+            await syncWithServer();
+            // Фоновая синхронизация каждые 10 секунд
+            setInterval(syncWithServer, 10000);
         });
 
-        // Функция поиска сырых ссылок и превращения их в HTML <a> теги
         function linkify(text) {
             if (!text) return "";
-            
-            // Безопасное экранирование спецсимволов HTML
-            let escaped = text
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;");
-
-            // Регулярное выражение для поиска всех http:// и https:// ссылок
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            
-            return escaped.replace(urlRegex, function(url) {
-                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
-            });
-        }
-
-        function getStorageKeyAttempts() {
-            return `syndicate_wrong_attempts_${currentLevel}`;
-        }
-        function getStorageKeyLockout() {
-            return `syndicate_lockout_until_${currentLevel}`;
-        }
-
-        function checkLockoutState() {
-            const lockoutUntil = localStorage.getItem(getStorageKeyLockout());
-            if (lockoutUntil) {
-                const timeLeft = parseInt(lockoutUntil) - Date.now();
-                if (timeLeft > 0) {
-                    startLockoutTimer(timeLeft);
-                } else {
-                    localStorage.removeItem(getStorageKeyLockout());
-                    localStorage.removeItem(getStorageKeyAttempts());
-                    wrongAttempts = 0;
-                }
-            } else {
-                wrongAttempts = parseInt(localStorage.getItem(getStorageKeyAttempts()) || "0");
-            }
-        }
-
-        function startLockoutTimer(durationMs) {
-            codeInput.disabled = true;
-            submitBtn.disabled = true;
-
-            const endTime = Date.now() + durationMs;
-            localStorage.setItem(getStorageKeyLockout(), endTime);
-
-            if (lockoutTimer) clearInterval(lockoutTimer);
-
-            lockoutTimer = setInterval(() => {
-                const left = endTime - Date.now();
-                if (left <= 0) {
-                    clearInterval(lockoutTimer);
-                    localStorage.removeItem(getStorageKeyLockout());
-                    localStorage.removeItem(getStorageKeyAttempts());
-                    wrongAttempts = 0;
-                    
-                    codeInput.disabled = false;
-                    submitBtn.disabled = false;
-                    msgBox.className = "msg";
-                    msgBox.textContent = "";
-                } else {
-                    const minutes = Math.floor(left / 60000);
-                    const seconds = Math.floor((left % 60000) / 1000);
-                    msgBox.className = "msg msg-err";
-                    msgBox.textContent = `🚫 Штраф! Блокировка ввода: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                }
-            }, 1000);
-        }
-
-        async function fetchLevelsFromGoogle() {
-            try {
-                const response = await fetch(GOOGLE_SCRIPT_URL);
-                const data = await response.json();
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    GAME_LEVELS = data;
-                } else {
-                    taskText.textContent = "⚠️ Ошибка: вкладка 'Задания' пуста или не найдена.";
-                }
-            } catch (err) {
-                console.error("Ошибка загрузки:", err);
-                taskText.textContent = "⚠️ Ошибка подключения к серверу заданий. Проверьте интернет.";
-            }
+            let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            return escaped.replace(/(https?:\/\/[^\s]+)/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
         }
 
         function initTeam() {
             teamName = localStorage.getItem('syndicate_team_name') || "";
             if (!teamName) {
-                teamName = prompt("Введите название вашей команды:") || "Анонимы";
+                teamName = prompt("Введите название вашей команды:") || "Команда_" + Math.floor(Math.random()*1000);
                 localStorage.setItem('syndicate_team_name', teamName);
             }
             teamDisplay.textContent = teamName;
@@ -287,16 +173,66 @@
                 teamName = newName;
                 localStorage.setItem('syndicate_team_name', teamName);
                 teamDisplay.textContent = teamName;
+                syncWithServer();
             }
         });
 
-        function saveProgress() {
-            localStorage.setItem('syndicate_current_level', currentLevel);
+        async function syncWithServer() {
+            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
+
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}`);
+                const data = await response.json();
+
+                GAME_LEVELS = data.levels || [];
+                currentLevel = data.currentLevel || 0;
+
+                renderLevel();
+
+                // Проверка командного блокирования
+                const now = Date.now();
+                if (data.lockoutUntil && data.lockoutUntil > now) {
+                    startLockoutTimer(data.lockoutUntil - now);
+                } else if (isLocked) {
+                    unlockInterface();
+                } else if (data.wrongAttempts > 0) {
+                    msgBox.className = "msg msg-err";
+                    msgBox.textContent = `⚠️ Команда ошибласть! Осталось попыток: ${3 - data.wrongAttempts}`;
+                }
+            } catch (err) {
+                console.error("Ошибка синхронизации:", err);
+            }
         }
 
-        function loadProgress() {
-            const savedLvl = localStorage.getItem('syndicate_current_level');
-            if (savedLvl !== null) currentLevel = parseInt(savedLvl);
+        function startLockoutTimer(durationMs) {
+            isLocked = true;
+            codeInput.disabled = true;
+            submitBtn.disabled = true;
+
+            const endTime = Date.now() + durationMs;
+
+            if (lockoutTimer) clearInterval(lockoutTimer);
+
+            lockoutTimer = setInterval(() => {
+                const left = endTime - Date.now();
+                if (left <= 0) {
+                    unlockInterface();
+                } else {
+                    const minutes = Math.floor(left / 60000);
+                    const seconds = Math.floor((left % 60000) / 1000);
+                    msgBox.className = "msg msg-err";
+                    msgBox.textContent = `🚫 КОМАНДНЫЙ ШТРАФ! Блокировка: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                }
+            }, 1000);
+        }
+
+        function unlockInterface() {
+            if (lockoutTimer) clearInterval(lockoutTimer);
+            isLocked = false;
+            codeInput.disabled = false;
+            submitBtn.disabled = false;
+            msgBox.className = "msg";
+            msgBox.textContent = "";
         }
 
         function renderLevel() {
@@ -304,7 +240,7 @@
 
             if (currentLevel >= GAME_LEVELS.length) {
                 taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
-                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены, время зафиксировано у ведущего!";
+                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены!";
                 codeInput.style.display = "none";
                 submitBtn.style.display = "none";
                 document.querySelector('.prompt-text').style.display = "none";
@@ -313,10 +249,7 @@
 
             const lvl = GAME_LEVELS[currentLevel];
             taskTitle.textContent = lvl.title;
-            // Использование innerHTML вместе с функцией linkify для рендеринга кликабельных ссылок
             taskText.innerHTML = linkify(lvl.clue);
-            
-            checkLockoutState();
         }
 
         function getCoordinates() {
@@ -335,38 +268,17 @@
                             mapUrl: `https://maps.yandex.ru/?text=${lat},${lng}`
                         });
                     },
-                    (err) => {
-                        resolve({ coords: "GPS выключен/запрещен", mapUrl: "—" });
-                    },
+                    () => resolve({ coords: "GPS выключен", mapUrl: "—" }),
                     { enableHighAccuracy: true, timeout: 3500, maximumAge: 0 }
                 );
             });
         }
 
-        function sendResultToHost(levelTitle, userCode, isCorrect, geoData) {
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
-
-            const payload = JSON.stringify({
-                team: teamName,
-                level: levelTitle,
-                code: userCode,
-                status: isCorrect ? "ВЕРНО" : "НЕВЕРНО",
-                coords: geoData.coords,
-                mapUrl: geoData.mapUrl
-            });
-
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: "POST",
-                mode: "no-cors",
-                headers: { "Content-Type": "text/plain;charset=utf-8" },
-                body: payload
-            }).catch(err => console.log("Ошибка отправки:", err));
-        }
-
         submitBtn.addEventListener('click', async () => {
-            if (codeInput.disabled) return;
+            if (codeInput.disabled || isLocked) return;
             const userCode = codeInput.value.trim().toUpperCase();
             if (GAME_LEVELS.length === 0) return;
+
             const targetLevel = GAME_LEVELS[currentLevel];
 
             if (!userCode) {
@@ -379,51 +291,42 @@
             codeInput.disabled = true;
             msgBox.className = "msg";
             msgBox.style.color = "#a8b2d1";
-            msgBox.textContent = "⏳ Фиксация GPS и отправка...";
+            msgBox.textContent = "⏳ Проверка кода...";
 
             const geoData = await getCoordinates();
+            const isCorrect = (userCode === targetLevel.code.toUpperCase());
 
-            if (userCode === targetLevel.code.toUpperCase()) {
-                msgBox.className = "msg msg-ok";
-                msgBox.textContent = "✅ Код принят! Данные зафиксированы.";
-                
-                sendResultToHost(targetLevel.title, userCode, true, geoData);
+            const payload = JSON.stringify({
+                team: teamName,
+                level: targetLevel.title,
+                code: userCode,
+                status: isCorrect ? "ВЕРНО" : "НЕВЕРНО",
+                coords: geoData.coords,
+                mapUrl: geoData.mapUrl
+            });
 
-                localStorage.removeItem(getStorageKeyAttempts());
-                localStorage.removeItem(getStorageKeyLockout());
-                wrongAttempts = 0;
+            try {
+                await fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: payload
+                });
 
                 codeInput.value = "";
-                currentLevel++;
-                saveProgress();
+                // Сразу запрашиваем обновленный статус с сервера
+                setTimeout(async () => {
+                    await syncWithServer();
+                    if (!isLocked) {
+                        codeInput.disabled = false;
+                        submitBtn.disabled = false;
+                    }
+                }, 1000);
 
-                setTimeout(() => {
-                    msgBox.textContent = "";
-                    codeInput.disabled = false;
-                    submitBtn.disabled = false;
-                    renderLevel();
-                }, 1500);
-            } else {
-                wrongAttempts++;
-                localStorage.setItem(getStorageKeyAttempts(), wrongAttempts);
-
-                sendResultToHost(targetLevel.title, userCode, false, geoData);
-
-                if (wrongAttempts >= 3) {
-                    startLockoutTimer(5 * 60 * 1000);
-                } else {
-                    msgBox.className = "msg msg-err";
-                    msgBox.textContent = `❌ Неверный код! Осталось попыток: ${3 - wrongAttempts}`;
-                    codeInput.disabled = false;
-                    submitBtn.disabled = false;
-                }
-            }
-        });
-
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            if (confirm("Сбросить текущий прогресс игры?")) {
-                localStorage.clear();
-                location.reload();
+            } catch (err) {
+                console.error("Ошибка отправки:", err);
+                submitBtn.disabled = false;
+                codeInput.disabled = false;
             }
         });
     </script>
