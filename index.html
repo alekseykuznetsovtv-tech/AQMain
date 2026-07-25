@@ -128,10 +128,10 @@
         </div>
 
         <!-- Заголовок задания -->
-        <div id="taskTitle" class="task-title">Задание 1:</div>
+        <div id="taskTitle" class="task-title">Загрузка...</div>
 
         <!-- Текст задания -->
-        <div id="taskText" class="task-text">Загрузка задания...</div>
+        <div id="taskText" class="task-text">⏳ Получение заданий из сервера...</div>
 
         <!-- Ввод кода -->
         <div class="prompt-text">Для получения следующего задания введите код:</div>
@@ -144,39 +144,14 @@
 
     <script>
         // =================================================================
-        // 1. ССЫЛКА НА GOOGLE APPS SCRIPT
+        // ССЫЛКА НА GOOGLE APPS SCRIPT
         // =================================================================
         const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymyo45TOB3pzo61x6Vk4v1cG0URU69Xvcv6JsdvjqFzm9MYPDfiucojmM9FpE6igx9Tw/exec";
 
-        // =================================================================
-        // 2. СПИСОК ЗАДАНИЙ И КОДОВ
-        // =================================================================
-        const GAME_LEVELS = [
-            {
-                number: 1,
-                title: "Задание 1:",
-                clue: "Первый контейнер запрятан в районе посёлка Рудник.\n\nНайдите двухэтажное заброшенное здание у дороги и загляните под лестницу первого этажа.",
-                code: "ОБЩАК11"
-            },
-            {
-                number: 2,
-                title: "Задание 2:",
-                clue: "Второй ключ спрятан в гаражном массиве Воргашора.\n\nИщите крайний гараж с синими воротами. Код нанесён контрастной краской на торцевой стене.",
-                code: "КЭШБЭК22"
-            },
-            {
-                number: 3,
-                title: "Задание 3:",
-                clue: "Финальный объект — промзона на Цемзаводе.\n\nВведите код с опорного столба у въездных ворот, чтобы завершить эвакуацию!",
-                code: "ФИНАЛ777"
-            }
-        ];
-
-        // Состояние
+        let GAME_LEVELS = [];
         let currentLevel = 0;
         let teamName = "";
 
-        // UI Элементы
         const taskTitle = document.getElementById('taskTitle');
         const taskText = document.getElementById('taskText');
         const codeInput = document.getElementById('codeInput');
@@ -184,11 +159,29 @@
         const msgBox = document.getElementById('msgBox');
         const teamDisplay = document.getElementById('teamDisplay');
 
-        window.addEventListener('load', () => {
+        window.addEventListener('load', async () => {
             initTeam();
             loadProgress();
+            await fetchLevelsFromGoogle();
             renderLevel();
         });
+
+        // Загрузка заданий из Google Таблицы
+        async function fetchLevelsFromGoogle() {
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                const data = await response.json();
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    GAME_LEVELS = data;
+                } else {
+                    taskText.textContent = "⚠️ Ошибка: вкладка 'Задания' пуста или не найдена.";
+                }
+            } catch (err) {
+                console.error("Ошибка загрузки:", err);
+                taskText.textContent = "⚠️ Ошибка подключения к серверу заданий. Проверьте интернет.";
+            }
+        }
 
         function initTeam() {
             teamName = localStorage.getItem('syndicate_team_name') || "";
@@ -215,10 +208,11 @@
         function loadProgress() {
             const savedLvl = localStorage.getItem('syndicate_current_level');
             if (savedLvl !== null) currentLevel = parseInt(savedLvl);
-            if (currentLevel >= GAME_LEVELS.length) currentLevel = GAME_LEVELS.length;
         }
 
         function renderLevel() {
+            if (GAME_LEVELS.length === 0) return;
+
             if (currentLevel >= GAME_LEVELS.length) {
                 taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
                 taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены, время зафиксировано у ведущего!";
@@ -233,7 +227,6 @@
             taskText.textContent = lvl.clue;
         }
 
-        // Запрос координат пользователя
         function getCoordinates() {
             return new Promise((resolve) => {
                 if (!("geolocation" in navigator)) {
@@ -258,7 +251,6 @@
             });
         }
 
-        // Отправка данных на Google Скрипт
         function sendResultToHost(levelTitle, userCode, isCorrect, geoData) {
             if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
 
@@ -279,9 +271,9 @@
             }).catch(err => console.log("Ошибка отправки:", err));
         }
 
-        // Обработчик проверки кода
         submitBtn.addEventListener('click', async () => {
             const userCode = codeInput.value.trim().toUpperCase();
+            if (GAME_LEVELS.length === 0) return;
             const targetLevel = GAME_LEVELS[currentLevel];
 
             if (!userCode) {
@@ -290,13 +282,11 @@
                 return;
             }
 
-            // Блокируем кнопку на время получения GPS и отправки
             submitBtn.disabled = true;
             msgBox.className = "msg";
             msgBox.style.color = "#a8b2d1";
             msgBox.textContent = "⏳ Фиксация GPS и отправка...";
 
-            // Получаем геопозицию
             const geoData = await getCoordinates();
 
             if (userCode === targetLevel.code.toUpperCase()) {
@@ -323,7 +313,6 @@
             }
         });
 
-        // Сброс прогресса
         document.getElementById('resetBtn').addEventListener('click', () => {
             if (confirm("Сбросить текущий прогресс игры?")) {
                 localStorage.removeItem('syndicate_current_level');
