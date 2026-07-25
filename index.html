@@ -34,6 +34,7 @@
             margin-bottom: 15px;
             display: flex;
             justify-content: space-between;
+            align-items: center;
         }
         .task-title {
             font-size: 1.4rem;
@@ -121,7 +122,7 @@
         </div>
 
         <div id="taskTitle" class="task-title">Загрузка...</div>
-        <div id="taskText" class="task-text">⏳ Подключение к серверу...</div>
+        <div id="taskText" class="task-text">⏳ Авторизация...</div>
 
         <div class="prompt-text">Для получения следующего задания введите код:</div>
         <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
@@ -135,6 +136,7 @@
         let GAME_LEVELS = [];
         let currentLevel = 0;
         let teamName = "";
+        let teamPin = "";
         let lockoutTimer = null;
         let isLocked = false;
 
@@ -148,8 +150,7 @@
         window.addEventListener('load', async () => {
             initTeam();
             await syncWithServer();
-            // Фоновая синхронизация каждые 10 секунд
-            setInterval(syncWithServer, 10000);
+            setInterval(syncWithServer, 10000); // Синхронизация каждые 10 сек
         });
 
         function linkify(text) {
@@ -160,36 +161,53 @@
 
         function initTeam() {
             teamName = localStorage.getItem('syndicate_team_name') || "";
-            if (!teamName) {
-                teamName = prompt("Введите название вашей команды:") || "Команда_" + Math.floor(Math.random()*1000);
-                localStorage.setItem('syndicate_team_name', teamName);
+            teamPin = localStorage.getItem('syndicate_team_pin') || "";
+
+            if (!teamName || !teamPin) {
+                promptCredentials();
+            } else {
+                teamDisplay.textContent = teamName;
             }
+        }
+
+        function promptCredentials() {
+            teamName = prompt("Введите название вашей команды:", teamName) || "";
+            if (!teamName) teamName = "Команда_" + Math.floor(Math.random()*1000);
+            
+            teamPin = prompt("Придумайте или введите ПИН-код вашей команды (4 цифры):", teamPin) || "";
+            if (!teamPin) teamPin = "0000";
+
+            localStorage.setItem('syndicate_team_name', teamName);
+            localStorage.setItem('syndicate_team_pin', teamPin);
             teamDisplay.textContent = teamName;
         }
 
         document.getElementById('changeTeamBtn').addEventListener('click', () => {
-            const newName = prompt("Введите новое название команды:", teamName);
-            if (newName) {
-                teamName = newName;
-                localStorage.setItem('syndicate_team_name', teamName);
-                teamDisplay.textContent = teamName;
-                syncWithServer();
-            }
+            promptCredentials();
+            syncWithServer();
         });
 
         async function syncWithServer() {
             if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
 
             try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}`);
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}`);
                 const data = await response.json();
+
+                if (data.status === "ERROR") {
+                    taskTitle.textContent = "Ошибка авторизации";
+                    taskText.textContent = data.message + "\n\nНажмите «Сменить», чтобы ввести правильный ПИН-код.";
+                    codeInput.disabled = true;
+                    submitBtn.disabled = true;
+                    return;
+                }
 
                 GAME_LEVELS = data.levels || [];
                 currentLevel = data.currentLevel || 0;
 
                 renderLevel();
 
-                // Проверка командного блокирования
+                // Проверка командного штрафа
                 const now = Date.now();
                 if (data.lockoutUntil && data.lockoutUntil > now) {
                     startLockoutTimer(data.lockoutUntil - now);
@@ -197,7 +215,9 @@
                     unlockInterface();
                 } else if (data.wrongAttempts > 0) {
                     msgBox.className = "msg msg-err";
-                    msgBox.textContent = `⚠️ Команда ошибласть! Осталось попыток: ${3 - data.wrongAttempts}`;
+                    msgBox.textContent = `⚠️ Команда ошиблась! Осталось попыток: ${3 - data.wrongAttempts}`;
+                } else {
+                    msgBox.textContent = "";
                 }
             } catch (err) {
                 console.error("Ошибка синхронизации:", err);
@@ -250,6 +270,11 @@
             const lvl = GAME_LEVELS[currentLevel];
             taskTitle.textContent = lvl.title;
             taskText.innerHTML = linkify(lvl.clue);
+            
+            if (!isLocked) {
+                codeInput.disabled = false;
+                submitBtn.disabled = false;
+            }
         }
 
         function getCoordinates() {
@@ -298,6 +323,7 @@
 
             const payload = JSON.stringify({
                 team: teamName,
+                pin: teamPin,
                 level: targetLevel.title,
                 code: userCode,
                 status: isCorrect ? "ВЕРНО" : "НЕВЕРНО",
@@ -314,13 +340,8 @@
                 });
 
                 codeInput.value = "";
-                // Сразу запрашиваем обновленный статус с сервера
                 setTimeout(async () => {
                     await syncWithServer();
-                    if (!isLocked) {
-                        codeInput.disabled = false;
-                        submitBtn.disabled = false;
-                    }
                 }, 1000);
 
             } catch (err) {
