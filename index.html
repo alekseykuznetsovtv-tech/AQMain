@@ -76,6 +76,11 @@
         .code-input:focus {
             border-color: #ffcc00;
         }
+        .code-input:disabled {
+            background: #1f242d;
+            color: #555;
+            border-color: #333;
+        }
         .btn {
             width: 100%;
             padding: 14px;
@@ -89,8 +94,8 @@
             text-transform: uppercase;
         }
         .btn:disabled {
-            background: #555;
-            color: #888;
+            background: #333;
+            color: #666;
             cursor: not-allowed;
         }
         .btn:active:not(:disabled) {
@@ -151,6 +156,8 @@
         let GAME_LEVELS = [];
         let currentLevel = 0;
         let teamName = "";
+        let wrongAttempts = 0;
+        let lockoutTimer = null;
 
         const taskTitle = document.getElementById('taskTitle');
         const taskText = document.getElementById('taskText');
@@ -164,9 +171,66 @@
             loadProgress();
             await fetchLevelsFromGoogle();
             renderLevel();
+            checkLockoutState();
         });
 
-        // Загрузка заданий из Google Таблицы
+        // Ключи для localStorage текущего уровня
+        function getStorageKeyAttempts() {
+            return `syndicate_wrong_attempts_${currentLevel}`;
+        }
+        function getStorageKeyLockout() {
+            return `syndicate_lockout_until_${currentLevel}`;
+        }
+
+        // Проверка блокировки при загрузке или смене уровня
+        function checkLockoutState() {
+            const lockoutUntil = localStorage.getItem(getStorageKeyLockout());
+            if (lockoutUntil) {
+                const timeLeft = parseInt(lockoutUntil) - Date.now();
+                if (timeLeft > 0) {
+                    startLockoutTimer(timeLeft);
+                } else {
+                    // Время блокировки вышло
+                    localStorage.removeItem(getStorageKeyLockout());
+                    localStorage.removeItem(getStorageKeyAttempts());
+                    wrongAttempts = 0;
+                }
+            } else {
+                wrongAttempts = parseInt(localStorage.getItem(getStorageKeyAttempts()) || "0");
+            }
+        }
+
+        // Запуск блокировки ввода
+        function startLockoutTimer(durationMs) {
+            codeInput.disabled = true;
+            submitBtn.disabled = true;
+
+            const endTime = Date.now() + durationMs;
+            localStorage.setItem(getStorageKeyLockout(), endTime);
+
+            if (lockoutTimer) clearInterval(lockoutTimer);
+
+            lockoutTimer = setInterval(() => {
+                const left = endTime - Date.now();
+                if (left <= 0) {
+                    clearInterval(lockoutTimer);
+                    localStorage.removeItem(getStorageKeyLockout());
+                    localStorage.removeItem(getStorageKeyAttempts());
+                    wrongAttempts = 0;
+                    
+                    codeInput.disabled = false;
+                    submitBtn.disabled = false;
+                    msgBox.className = "msg";
+                    msgBox.textContent = "";
+                } else {
+                    const minutes = Math.floor(left / 60000);
+                    const seconds = Math.floor((left % 60000) / 1000);
+                    msgBox.className = "msg msg-err";
+                    msgBox.textContent = `🚫 Штраф! Блокировка ввода: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+                }
+            }, 1000);
+        }
+
         async function fetchLevelsFromGoogle() {
             try {
                 const response = await fetch(GOOGLE_SCRIPT_URL);
@@ -225,6 +289,8 @@
             const lvl = GAME_LEVELS[currentLevel];
             taskTitle.textContent = lvl.title;
             taskText.textContent = lvl.clue;
+            
+            checkLockoutState();
         }
 
         function getCoordinates() {
@@ -272,6 +338,7 @@
         }
 
         submitBtn.addEventListener('click', async () => {
+            if (codeInput.disabled) return;
             const userCode = codeInput.value.trim().toUpperCase();
             if (GAME_LEVELS.length === 0) return;
             const targetLevel = GAME_LEVELS[currentLevel];
@@ -283,6 +350,7 @@
             }
 
             submitBtn.disabled = true;
+            codeInput.disabled = true;
             msgBox.className = "msg";
             msgBox.style.color = "#a8b2d1";
             msgBox.textContent = "⏳ Фиксация GPS и отправка...";
@@ -295,28 +363,42 @@
                 
                 sendResultToHost(targetLevel.title, userCode, true, geoData);
 
+                // Очищаем штрафы для этого уровня при успехе
+                localStorage.removeItem(getStorageKeyAttempts());
+                localStorage.removeItem(getStorageKeyLockout());
+                wrongAttempts = 0;
+
                 codeInput.value = "";
                 currentLevel++;
                 saveProgress();
 
                 setTimeout(() => {
                     msgBox.textContent = "";
+                    codeInput.disabled = false;
                     submitBtn.disabled = false;
                     renderLevel();
                 }, 1500);
             } else {
-                msgBox.className = "msg msg-err";
-                msgBox.textContent = "❌ Неверный код!";
-                
+                wrongAttempts++;
+                localStorage.setItem(getStorageKeyAttempts(), wrongAttempts);
+
                 sendResultToHost(targetLevel.title, userCode, false, geoData);
-                submitBtn.disabled = false;
+
+                if (wrongAttempts >= 3) {
+                    // Включаем блокировку на 5 минут (5 * 60 * 1000 мс)
+                    startLockoutTimer(5 * 60 * 1000);
+                } else {
+                    msgBox.className = "msg msg-err";
+                    msgBox.textContent = `❌ Неверный код! Осталось попыток: ${3 - wrongAttempts}`;
+                    codeInput.disabled = false;
+                    submitBtn.disabled = false;
+                }
             }
         });
 
         document.getElementById('resetBtn').addEventListener('click', () => {
             if (confirm("Сбросить текущий прогресс игры?")) {
-                localStorage.removeItem('syndicate_current_level');
-                currentLevel = 0;
+                localStorage.clear();
                 location.reload();
             }
         });
