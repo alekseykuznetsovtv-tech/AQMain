@@ -51,6 +51,17 @@
             border-radius: 8px;
             border-left: 4px solid #ffcc00;
             margin-bottom: 25px;
+            word-break: break-word;
+        }
+        /* Стилизация ссылок в задании */
+        .task-text a {
+            color: #00ff66;
+            text-decoration: underline;
+            font-weight: 600;
+            word-break: break-all;
+        }
+        .task-text a:active {
+            color: #ffcc00;
         }
         .prompt-text {
             font-size: 0.95rem;
@@ -174,7 +185,24 @@
             checkLockoutState();
         });
 
-        // Ключи для localStorage текущего уровня
+        // Функция поиска сырых ссылок и превращения их в HTML <a> теги
+        function linkify(text) {
+            if (!text) return "";
+            
+            // Безопасное экранирование спецсимволов HTML
+            let escaped = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Регулярное выражение для поиска всех http:// и https:// ссылок
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            
+            return escaped.replace(urlRegex, function(url) {
+                return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`;
+            });
+        }
+
         function getStorageKeyAttempts() {
             return `syndicate_wrong_attempts_${currentLevel}`;
         }
@@ -182,7 +210,6 @@
             return `syndicate_lockout_until_${currentLevel}`;
         }
 
-        // Проверка блокировки при загрузке или смене уровня
         function checkLockoutState() {
             const lockoutUntil = localStorage.getItem(getStorageKeyLockout());
             if (lockoutUntil) {
@@ -190,7 +217,6 @@
                 if (timeLeft > 0) {
                     startLockoutTimer(timeLeft);
                 } else {
-                    // Время блокировки вышло
                     localStorage.removeItem(getStorageKeyLockout());
                     localStorage.removeItem(getStorageKeyAttempts());
                     wrongAttempts = 0;
@@ -200,7 +226,6 @@
             }
         }
 
-        // Запуск блокировки ввода
         function startLockoutTimer(durationMs) {
             codeInput.disabled = true;
             submitBtn.disabled = true;
@@ -288,7 +313,8 @@
 
             const lvl = GAME_LEVELS[currentLevel];
             taskTitle.textContent = lvl.title;
-            taskText.textContent = lvl.clue;
+            // Использование innerHTML вместе с функцией linkify для рендеринга кликабельных ссылок
+            taskText.innerHTML = linkify(lvl.clue);
             
             checkLockoutState();
         }
@@ -363,7 +389,6 @@
                 
                 sendResultToHost(targetLevel.title, userCode, true, geoData);
 
-                // Очищаем штрафы для этого уровня при успехе
                 localStorage.removeItem(getStorageKeyAttempts());
                 localStorage.removeItem(getStorageKeyLockout());
                 wrongAttempts = 0;
@@ -385,7 +410,6 @@
                 sendResultToHost(targetLevel.title, userCode, false, geoData);
 
                 if (wrongAttempts >= 3) {
-                    // Включаем блокировку на 5 минут (5 * 60 * 1000 мс)
                     startLockoutTimer(5 * 60 * 1000);
                 } else {
                     msgBox.className = "msg msg-err";
