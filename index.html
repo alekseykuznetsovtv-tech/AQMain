@@ -325,11 +325,11 @@
   let teamPin = localStorage.getItem("quest_pin") || "";
   
   let currentLevel = 0;
-  let lastRenderedLevel = -1; // Переменная для отслеживания смены уровня
+  let lastRenderedLevel = -1; 
   let selectedReviewLevel = 0;
   let isFinished = false;
   let isSubmitting = false;
-  let wasLocked = false; // Переменная для отслеживания состояния блокировки
+  let wasLocked = false; 
 
   let levelStartTime = 0;
   let hintsTaken = 0;
@@ -351,7 +351,6 @@
     }
   };
 
-  // Очистка сообщения об ошибке при вводе нового текста
   function clearErrorMsg() {
     const msgEl = document.getElementById("game-msg");
     const now = new Date().getTime();
@@ -361,7 +360,6 @@
     }
   }
 
-  // Выход из профиля
   function logout() {
     if (confirm("Вы действительно хотите сбросить прогресс на устройстве и выйти из команды? Это вернет вас на экран авторизации.")) {
       localStorage.removeItem("quest_team");
@@ -370,7 +368,6 @@
     }
   }
 
-  // Вход в систему
   function login() {
     const t = document.getElementById("auth-team").value.trim();
     const p = document.getElementById("auth-pin").value.trim();
@@ -409,7 +406,6 @@
     });
   }
 
-  // Фоновая синхронизация
   function backgroundSync() {
     if (isSubmitting) return;
 
@@ -420,15 +416,22 @@
     });
   }
 
-  // Обработка ответа сервера
   function processServerData(data) {
     allGameLevels = data.levels || [];
     isFinished = !!data.isFinished;
     
-    if (!isFinished && data.currentLevel !== undefined && data.currentLevel > currentLevel) {
-      currentLevel = data.currentLevel;
+    let newServerLevel = data.currentLevel !== undefined ? data.currentLevel : currentLevel;
+    
+    // Если уровень изменился в бэкенде, сбрасываем статус сообщения об успехе
+    if (newServerLevel !== currentLevel) {
+      const msgEl = document.getElementById("game-msg");
+      if (msgEl.className.includes("success")) {
+        msgEl.style.display = "none";
+        msgEl.className = "status-msg";
+      }
+      currentLevel = newServerLevel;
     } else if (isFinished) {
-      currentLevel = data.currentLevel;
+      currentLevel = newServerLevel;
     }
 
     levelStartTime = data.levelStartTime || levelStartTime;
@@ -471,17 +474,18 @@
     return text.replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
   }
 
-  // Отображение игры (в процессе)
   function renderPlayingState() {
     document.getElementById("finished-navigation").style.display = "none";
     document.getElementById("code-form-container").style.display = "block";
     document.getElementById("logout-btn").style.display = "none";
     
-    // Скрываем старые сообщения ТОЛЬКО если сменился уровень
     if (currentLevel !== lastRenderedLevel) {
       const msgEl = document.getElementById("game-msg");
-      msgEl.style.display = "none";
-      msgEl.className = "status-msg";
+      // Скрываем старые сообщения (ошибки) только при реальной смене уровня
+      if (!msgEl.className.includes("success")) {
+        msgEl.style.display = "none";
+        msgEl.className = "status-msg";
+      }
       lastRenderedLevel = currentLevel;
     }
 
@@ -494,7 +498,6 @@
     }
   }
 
-  // Отображение финиша
   function renderFinishedState() {
     document.getElementById("code-form-container").style.display = "none";
     document.getElementById("finished-navigation").style.display = "block";
@@ -544,7 +547,6 @@
     }
   }
 
-  // Обновление таймеров
   function updateTimers() {
     const now = new Date().getTime();
 
@@ -561,7 +563,6 @@
       submitBtn.disabled = false;
       codeInput.disabled = false;
       
-      // Если блокировка только что закончилась, очищаем сообщение
       if (wasLocked) {
         document.getElementById("game-msg").style.display = "none";
         wasLocked = false;
@@ -624,7 +625,6 @@
     });
   }
 
-  // Отправка кода
   function submitCode() {
     const codeEl = document.getElementById("code-input");
     const code = codeEl.value.trim();
@@ -648,11 +648,11 @@
         if (data.status === "OK") {
           if (data.result === "CORRECT" || data.result === "FINISHED") {
             codeEl.value = "";
-            processServerData(data); // Сначала обновляем интерфейс (и уровень)
-            showMsg("game-msg", data.message || "Код принят!", "success"); // Затем показываем успех
+            processServerData(data); 
+            showMsg("game-msg", data.message || "Код верный! Переход на следующий уровень.", "success");
           } else {
-            processServerData(data); // Сначала обновляем интерфейс (в т.ч. попытки)
-            showMsg("game-msg", "Код неверный", "error"); // Устанавливаем надпись об ошибке
+            processServerData(data); 
+            showMsg("game-msg", "Код неверный", "error"); 
           }
         } else {
           showMsg("game-msg", data.message || "Ошибка проверки кода", "error");
@@ -694,12 +694,11 @@
     }
   }
 
-  // Обновленная функция показа сообщений
   function showMsg(elementId, text, type) {
     const el = document.getElementById(elementId);
     el.textContent = text;
     el.className = `status-msg ${type}`;
-    el.style.display = ""; // Обязательно сбрасываем inline-скрытие, чтобы класс CSS сработал
+    el.style.display = ""; 
   }
 
   function formatTime(ms) {
