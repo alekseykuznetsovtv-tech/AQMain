@@ -336,6 +336,15 @@
       document.getElementById("auth-team").value = teamName;
       document.getElementById("auth-pin").value = teamPin;
       login();
+
+    function logout() {
+  if (confirm("Вы действительно хотите выйти из профиля команды?")) {
+    localStorage.removeItem("quest_team");
+    localStorage.removeItem("quest_pin");
+    location.reload();
+  }
+}
+
     }
   };
 
