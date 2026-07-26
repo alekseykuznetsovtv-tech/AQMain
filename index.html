@@ -300,12 +300,12 @@
         <h3>Ввод кода</h3>
         <span class="attempts-info" id="attempts-left-info">Осталось попыток: 3</span>
       </div>
-      <input type="text" id="code-input" placeholder="Введите код (например: 12R34)" autocomplete="off" autocapitalize="characters">
+      <input type="text" id="code-input" placeholder="Введите код (например: 12R34)" autocomplete="off" autocapitalize="characters" oninput="clearErrorMsg()" onfocus="clearErrorMsg()">
       <button id="submit-code-btn" onclick="submitCode()">Отправить код</button>
       <div id="game-msg" class="status-msg"></div>
     </div>
     
-    <!-- Кнопка выхода для сброса прогресса (скрыта по умолчанию) -->
+    <!-- Кнопка выхода для сброса прогресса -->
     <button id="logout-btn" onclick="logout()" class="btn-logout" style="display: none;">
       🚪 Выйти из профиля команды и начать заново
     </button>
@@ -325,9 +325,11 @@
   let teamPin = localStorage.getItem("quest_pin") || "";
   
   let currentLevel = 0;
+  let lastRenderedLevel = -1; // Переменная для отслеживания смены уровня
   let selectedReviewLevel = 0;
   let isFinished = false;
   let isSubmitting = false;
+  let wasLocked = false; // Переменная для отслеживания состояния блокировки
 
   let levelStartTime = 0;
   let hintsTaken = 0;
@@ -349,7 +351,17 @@
     }
   };
 
-  // Выход из профиля команды (сброс)
+  // Очистка сообщения об ошибке при вводе нового текста
+  function clearErrorMsg() {
+    const msgEl = document.getElementById("game-msg");
+    const now = new Date().getTime();
+    if (msgEl.className.includes("error") && lockoutUntil < now) {
+      msgEl.style.display = "none";
+      msgEl.className = "status-msg";
+    }
+  }
+
+  // Выход из профиля
   function logout() {
     if (confirm("Вы действительно хотите сбросить прогресс на устройстве и выйти из команды? Это вернет вас на экран авторизации.")) {
       localStorage.removeItem("quest_team");
@@ -389,7 +401,6 @@
 
         processServerData(data);
 
-        // Запуск фоновых таймеров
         if (!timerInterval) timerInterval = setInterval(updateTimers, 1000);
         if (!syncInterval) syncInterval = setInterval(backgroundSync, 5000);
       } else {
@@ -441,7 +452,6 @@
     updateTimers();
   }
 
-  // Обновление интерфейса попыток
   function updateAttemptsUI() {
     const attemptsLeft = Math.max(0, 3 - wrongAttempts);
     const infoEl = document.getElementById("attempts-left-info");
@@ -455,7 +465,6 @@
     }
   }
 
-  // Вспомогательная функция для превращения обычных ссылок в кликабельные HTML-ссылки
   function formatTextWithLinks(text) {
     if (!text) return "";
     const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -466,12 +475,15 @@
   function renderPlayingState() {
     document.getElementById("finished-navigation").style.display = "none";
     document.getElementById("code-form-container").style.display = "block";
-    
-    // Прячем кнопку выхода во время игры
     document.getElementById("logout-btn").style.display = "none";
     
-    // Сбрасываем старое сообщение об успехе/ошибке при смене уровня
-    document.getElementById("game-msg").style.display = "none";
+    // Скрываем старые сообщения ТОЛЬКО если сменился уровень
+    if (currentLevel !== lastRenderedLevel) {
+      const msgEl = document.getElementById("game-msg");
+      msgEl.style.display = "none";
+      msgEl.className = "status-msg";
+      lastRenderedLevel = currentLevel;
+    }
 
     document.getElementById("display-level-num").textContent = "Уровень " + (currentLevel + 1);
 
@@ -487,8 +499,6 @@
     document.getElementById("code-form-container").style.display = "none";
     document.getElementById("finished-navigation").style.display = "block";
     document.getElementById("display-level-num").textContent = "ФИНИШ 🏁";
-
-    // Показываем кнопку выхода только после финиша
     document.getElementById("logout-btn").style.display = "block";
 
     const container = document.getElementById("level-buttons-container");
@@ -546,9 +556,16 @@
       submitBtn.disabled = true;
       codeInput.disabled = true;
       showMsg("game-msg", `🚫 БЛОКИРОВКА! Дополнительный ввод через ${remSec} сек.`, "error");
+      wasLocked = true;
     } else if (!isFinished && !isSubmitting) {
       submitBtn.disabled = false;
       codeInput.disabled = false;
+      
+      // Если блокировка только что закончилась, очищаем сообщение
+      if (wasLocked) {
+        document.getElementById("game-msg").style.display = "none";
+        wasLocked = false;
+      }
     }
 
     if (isFinished) return;
@@ -556,7 +573,6 @@
     const elapsed = now - levelStartTime;
     const levelData = allGameLevels[currentLevel] || {};
 
-    // Подсказка 1
     const h1Box = document.getElementById("hint1-box");
     const h1Btn = document.getElementById("hint1-btn");
     const h1Text = document.getElementById("hint1-text");
@@ -578,7 +594,6 @@
       }
     }
 
-    // Подсказка 2
     const h2Box = document.getElementById("hint2-box");
     const h2Btn = document.getElementById("hint2-btn");
     const h2Text = document.getElementById("hint2-text");
@@ -601,7 +616,6 @@
     }
   }
 
-  // Запрос подсказки
   function requestHint(hintNum) {
     fetchState("takeHint", {}, (data) => {
       if (data.status === "OK") {
@@ -634,16 +648,11 @@
         if (data.status === "OK") {
           if (data.result === "CORRECT" || data.result === "FINISHED") {
             codeEl.value = "";
-            showMsg("game-msg", data.message, "success");
-            
-            if (data.currentLevel !== undefined) {
-              currentLevel = data.currentLevel;
-            }
-            processServerData(data);
+            processServerData(data); // Сначала обновляем интерфейс (и уровень)
+            showMsg("game-msg", data.message || "Код принят!", "success"); // Затем показываем успех
           } else {
-            showMsg("game-msg", "Код неверный", "error");
-            if (data.lockoutUntil) lockoutUntil = data.lockoutUntil;
-            processServerData(data);
+            processServerData(data); // Сначала обновляем интерфейс (в т.ч. попытки)
+            showMsg("game-msg", "Код неверный", "error"); // Устанавливаем надпись об ошибке
           }
         } else {
           showMsg("game-msg", data.message || "Ошибка проверки кода", "error");
@@ -652,14 +661,11 @@
     });
   }
 
-  // Запросы к Google Apps Script
   function fetchState(action, extraParams, callback) {
     let url = `${SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}&action=${action}`;
-    
     for (let key in extraParams) {
       url += `&${key}=${encodeURIComponent(extraParams[key])}`;
     }
-
     fetch(url)
       .then(res => res.json())
       .then(data => callback(data))
@@ -670,16 +676,13 @@
       });
   }
 
-  // Сбор GPS
   function getGPSLocation(callback) {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const lat = pos.coords.latitude.toFixed(6);
           const lon = pos.coords.longitude.toFixed(6);
-          const coordsStr = `${lat}, ${lon}`;
-          const mapUrl = `https://maps.yandex.ru/?text=${lat},${lon}`;
-          callback(coordsStr, mapUrl);
+          callback(`${lat}, ${lon}`, `https://maps.yandex.ru/?text=${lat},${lon}`);
         },
         (err) => {
           callback("Геолокация недоступна", "—");
@@ -691,10 +694,12 @@
     }
   }
 
+  // Обновленная функция показа сообщений
   function showMsg(elementId, text, type) {
     const el = document.getElementById(elementId);
     el.textContent = text;
     el.className = `status-msg ${type}`;
+    el.style.display = ""; // Обязательно сбрасываем inline-скрытие, чтобы класс CSS сработал
   }
 
   function formatTime(ms) {
