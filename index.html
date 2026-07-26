@@ -441,7 +441,6 @@
             msgBox.textContent = "";
         }
 
-        // Безопасное получение координат с жестким таймаутом (не зависнет навсегда)
         function getCoordinates() {
             return new Promise((resolve) => {
                 if (!("geolocation" in navigator)) {
@@ -455,7 +454,7 @@
                         resolved = true;
                         resolve({ coords: "Таймаут GPS", mapUrl: "—" });
                     }
-                }, 3000);
+                }, 2500);
 
                 navigator.geolocation.getCurrentPosition(
                     (pos) => {
@@ -477,17 +476,15 @@
                             resolve({ coords: "GPS выключен", mapUrl: "—" });
                         }
                     },
-                    { enableHighAccuracy: true, timeout: 2500, maximumAge: 0 }
+                    { enableHighAccuracy: true, timeout: 2000, maximumAge: 0 }
                 );
             });
         }
 
+        // ОТПРАВКА КОДА
         submitBtn.addEventListener('click', async () => {
             if (codeInput.disabled || isLocked) return;
-            const userCode = codeInput.value.trim().toUpperCase();
-            if (GAME_LEVELS.length === 0) return;
-
-            const targetLevel = GAME_LEVELS[currentLevel];
+            const userCode = codeInput.value.trim();
 
             if (!userCode) {
                 msgBox.className = "msg msg-err";
@@ -503,34 +500,46 @@
 
             try {
                 const geoData = await getCoordinates();
-                const isCorrect = (userCode === targetLevel.code.toUpperCase());
 
-                const payload = JSON.stringify({
-                    team: teamName,
-                    pin: teamPin,
-                    level: targetLevel.title,
-                    code: userCode,
-                    status: isCorrect ? "ВЕРНО" : "НЕВЕРНО",
-                    coords: geoData.coords,
-                    mapUrl: geoData.mapUrl
-                });
+                let url = `${GOOGLE_SCRIPT_URL}?action=submitCode&team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}&code=${encodeURIComponent(userCode)}&coords=${encodeURIComponent(geoData.coords)}&mapUrl=${encodeURIComponent(geoData.mapUrl)}`;
 
-                await fetch(GOOGLE_SCRIPT_URL, {
-                    method: "POST",
-                    mode: "no-cors",
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: payload
-                });
+                const response = await fetch(url);
+                const data = await response.json();
 
-                codeInput.value = "";
-                setTimeout(async () => {
-                    await syncWithServer();
-                }, 1000);
+                if (data.status === "ERROR") {
+                    msgBox.className = "msg msg-err";
+                    msgBox.textContent = data.message;
+                    submitBtn.disabled = false;
+                    codeInput.disabled = false;
+                    return;
+                }
+
+                if (data.result === "CORRECT") {
+                    msgBox.className = "msg msg-ok";
+                    msgBox.textContent = data.message || "🎉 Код верный!";
+                    codeInput.value = "";
+                    setTimeout(async () => {
+                        await syncWithServer();
+                    }, 1200);
+                } else if (data.result === "WRONG") {
+                    codeInput.value = "";
+                    if (data.lockoutMs > 0) {
+                        startLockoutTimer(data.lockoutMs);
+                    } else {
+                        msgBox.className = "msg msg-err";
+                        msgBox.textContent = `❌ Неверный код! Осталось попыток: ${3 - data.wrongAttempts}`;
+                        submitBtn.disabled = false;
+                        codeInput.disabled = false;
+                    }
+                } else if (data.result === "FINISHED") {
+                    msgBox.className = "msg msg-ok";
+                    msgBox.textContent = "Игра уже завершена!";
+                }
 
             } catch (err) {
-                console.error("Ошибка отправки:", err);
+                console.error("Ошибка проверки кода:", err);
                 msgBox.className = "msg msg-err";
-                msgBox.textContent = "Ошибка отправки. Попробуйте еще раз.";
+                msgBox.textContent = "Ошибка связи с сервером. Попробуйте ещё раз.";
                 submitBtn.disabled = false;
                 codeInput.disabled = false;
             }
