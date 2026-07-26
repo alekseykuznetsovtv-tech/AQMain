@@ -148,6 +148,13 @@
       background-color: #2b281e;
     }
 
+    .attempts-info {
+      font-size: 0.85em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      text-align: right;
+    }
+
     .status-msg {
       padding: 12px;
       border-radius: 8px;
@@ -171,7 +178,6 @@
       display: block;
     }
 
-    /* Навигация после завершения игры */
     #finished-navigation {
       display: none;
       background-color: #1a1a24;
@@ -274,7 +280,10 @@
 
     <!-- Форма ввода кода -->
     <div id="code-form-container" class="card" style="margin-top: 15px;">
-      <h3>Ввод кода</h3>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3>Ввод кода</h3>
+        <span class="attempts-info" id="attempts-left-info">Осталось попыток: 3</span>
+      </div>
       <input type="text" id="code-input" placeholder="Введите код (например: 12R34)" autocomplete="off" autocapitalize="characters">
       <button id="submit-code-btn" onclick="submitCode()">Отправить код</button>
       <div id="game-msg" class="status-msg"></div>
@@ -304,6 +313,7 @@
   let hint1DelayMs = 600000;
   let hint2DelayMs = 1200000;
   let lockoutUntil = 0;
+  let wrongAttempts = 0;
 
   let allGameLevels = [];
   let timerInterval = null;
@@ -360,7 +370,7 @@
 
   // Фоновая синхронизация
   function backgroundSync() {
-    if (isSubmitting) return; // Пропускаем опрос во время отправки кода
+    if (isSubmitting) return;
 
     fetchState("sync", {}, (data) => {
       if (data && data.status === "OK") {
@@ -374,7 +384,6 @@
     allGameLevels = data.levels || [];
     isFinished = !!data.isFinished;
     
-    // Защита от откатов уровня (не понижаем уровень, если игра идет)
     if (!isFinished && data.currentLevel >= currentLevel) {
       currentLevel = data.currentLevel;
     } else if (isFinished) {
@@ -386,6 +395,12 @@
     hint1DelayMs = data.hint1DelayMs || hint1DelayMs;
     hint2DelayMs = data.hint2DelayMs || hint2DelayMs;
     lockoutUntil = data.lockoutUntil || lockoutUntil;
+    
+    if (data.wrongAttempts !== undefined) {
+      wrongAttempts = data.wrongAttempts;
+    }
+
+    updateAttemptsUI();
 
     if (isFinished) {
       renderFinishedState();
@@ -394,6 +409,20 @@
     }
 
     updateTimers();
+  }
+
+  // Обновление интерфейса попыток
+  function updateAttemptsUI() {
+    const attemptsLeft = Math.max(0, 3 - wrongAttempts);
+    const infoEl = document.getElementById("attempts-left-info");
+    if (infoEl) {
+      infoEl.textContent = `Осталось попыток: ${attemptsLeft} из 3`;
+      if (attemptsLeft === 1) {
+        infoEl.style.color = "var(--error-color)";
+      } else {
+        infoEl.style.color = "var(--text-muted)";
+      }
+    }
   }
 
   // Отображение игры (в процессе)
@@ -435,7 +464,6 @@
       document.getElementById("task-title").textContent = reviewData.title || ("Задание " + (selectedReviewLevel + 1));
       document.getElementById("task-clue").textContent = reviewData.clue || "";
 
-      // В режиме финиша показываем все доступные подсказки выбранного уровня
       const h1Box = document.getElementById("hint1-box");
       const h2Box = document.getElementById("hint2-box");
       
@@ -460,11 +488,10 @@
     }
   }
 
-  // Обновление таймеров подсказок и блокировки
+  // Обновление таймеров
   function updateTimers() {
     const now = new Date().getTime();
 
-    // Проверка блокировки ввода
     const submitBtn = document.getElementById("submit-code-btn");
     const codeInput = document.getElementById("code-input");
 
@@ -478,7 +505,6 @@
       codeInput.disabled = false;
     }
 
-    // В режиме финиша таймеры подсказок не рассчитываем
     if (isFinished) return;
 
     const elapsed = now - levelStartTime;
@@ -494,7 +520,7 @@
       h1Btn.style.display = "none";
       h1Text.textContent = "💡 Подсказка 1: " + levelData.hint1;
     } else {
-      const h1Rem = HINT1_DELAY_MS_CALC() - elapsed;
+      const h1Rem = hint1DelayMs - elapsed;
       if (h1Rem <= 0) {
         h1Box.className = "hint-box";
         h1Btn.style.display = "block";
@@ -516,7 +542,7 @@
       h2Btn.style.display = "none";
       h2Text.textContent = "💡 Подсказка 2: " + levelData.hint2;
     } else {
-      const h2Rem = HINT2_DELAY_MS_CALC() - elapsed;
+      const h2Rem = hint2DelayMs - elapsed;
       if (h2Rem <= 0 && hintsTaken >= 1) {
         h2Box.className = "hint-box";
         h2Btn.style.display = "block";
@@ -528,9 +554,6 @@
       }
     }
   }
-
-  function HINT1_DELAY_MS_CALC() { return hint1DelayMs; }
-  function HINT2_DELAY_MS_CALC() { return hint2DelayMs; }
 
   // Запрос подсказки
   function requestHint(hintNum) {
@@ -556,7 +579,6 @@
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Проверка...';
 
-    // Получаем геолокацию перед отправкой
     getGPSLocation((coords, mapUrl) => {
       fetchState("submitCode", { code: code, coords: coords, mapUrl: mapUrl }, (data) => {
         isSubmitting = false;
@@ -568,7 +590,6 @@
             codeEl.value = "";
             showMsg("game-msg", data.message, "success");
             
-            // Сразу увеличиваем текущий уровень локально
             if (data.currentLevel !== undefined) {
               currentLevel = data.currentLevel;
             }
@@ -576,6 +597,7 @@
           } else {
             showMsg("game-msg", data.message, "error");
             if (data.lockoutUntil) lockoutUntil = data.lockoutUntil;
+            processServerData(data);
           }
         } else {
           showMsg("game-msg", data.message || "Ошибка проверки кода", "error");
@@ -584,7 +606,7 @@
     });
   }
 
-  // Вспомогательная функция запросов к Google Apps Script
+  // Запросы к Google Apps Script
   function fetchState(action, extraParams, callback) {
     let url = `${SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}&action=${action}`;
     
@@ -602,7 +624,7 @@
       });
   }
 
-  // Вспомогательная функция сборки GPS
+  // Сбор GPS
   function getGPSLocation(callback) {
     if ("geolocation" in navigator) {
       navigator.geolocation.getCurrentPosition(
