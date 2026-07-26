@@ -305,9 +305,9 @@
       <div id="game-msg" class="status-msg"></div>
     </div>
     
-    <!-- Кнопка выхода для сброса прогресса устройства -->
-    <button onclick="logout()" class="btn-logout">
-      🚪 Выйти из профиля команды
+    <!-- Кнопка выхода для сброса прогресса (скрыта по умолчанию) -->
+    <button id="logout-btn" onclick="logout()" class="btn-logout" style="display: none;">
+      🚪 Выйти из профиля команды и начать заново
     </button>
 
   </div>
@@ -351,7 +351,7 @@
 
   // Выход из профиля команды (сброс)
   function logout() {
-    if (confirm("Вы действительно хотите выйти из профиля команды? Это вернет вас на экран авторизации.")) {
+    if (confirm("Вы действительно хотите сбросить прогресс на устройстве и выйти из команды? Это вернет вас на экран авторизации.")) {
       localStorage.removeItem("quest_team");
       localStorage.removeItem("quest_pin");
       location.reload();
@@ -467,6 +467,9 @@
     document.getElementById("finished-navigation").style.display = "none";
     document.getElementById("code-form-container").style.display = "block";
     
+    // Прячем кнопку выхода во время игры
+    document.getElementById("logout-btn").style.display = "none";
+    
     // Сбрасываем старое сообщение об успехе/ошибке при смене уровня
     document.getElementById("game-msg").style.display = "none";
 
@@ -484,6 +487,9 @@
     document.getElementById("code-form-container").style.display = "none";
     document.getElementById("finished-navigation").style.display = "block";
     document.getElementById("display-level-num").textContent = "ФИНИШ 🏁";
+
+    // Показываем кнопку выхода только после финиша
+    document.getElementById("logout-btn").style.display = "block";
 
     const container = document.getElementById("level-buttons-container");
     container.innerHTML = "";
