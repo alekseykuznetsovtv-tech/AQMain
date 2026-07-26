@@ -518,9 +518,19 @@
                     msgBox.className = "msg msg-ok";
                     msgBox.textContent = data.message || "🎉 Код верный!";
                     codeInput.value = "";
-                    setTimeout(async () => {
-                        await syncWithServer();
-                    }, 1200);
+
+                    // Мгновенное обновление уровня из ответа сервера
+                    if (data.levels) GAME_LEVELS = data.levels;
+                    if (data.currentLevel !== undefined) currentLevel = data.currentLevel;
+                    if (data.levelStartTime) levelStartTime = data.levelStartTime;
+                    hintsTaken = data.hintsTaken || 0;
+
+                    renderLevel();
+
+                    setTimeout(() => {
+                        msgBox.textContent = "";
+                    }, 2500);
+
                 } else if (data.result === "WRONG") {
                     codeInput.value = "";
                     if (data.lockoutMs > 0) {
