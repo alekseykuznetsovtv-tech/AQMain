@@ -51,15 +51,65 @@
             padding: 15px;
             border-radius: 8px;
             border-left: 4px solid #ffcc00;
-            margin-bottom: 25px;
+            margin-bottom: 15px;
             word-break: break-word;
         }
-        .task-text a {
+        .task-text a, .hint-box a {
             color: #00ff66;
             text-decoration: underline;
             font-weight: 600;
             word-break: break-all;
         }
+
+        /* БЛОК ПОДСКАЗОК */
+        .hint-container {
+            margin-bottom: 20px;
+        }
+        .hint-box {
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+            margin-bottom: 10px;
+            white-space: pre-line;
+            word-break: break-word;
+        }
+        .hint-1 {
+            background: #0f1923;
+            border-left: 4px solid #00bfff;
+            color: #80d8ff;
+        }
+        .hint-2 {
+            background: #241414;
+            border-left: 4px solid #ff4d4d;
+            color: #ff9999;
+        }
+        .hint-timer-info {
+            font-size: 0.85rem;
+            color: #ffcc00;
+            margin-bottom: 8px;
+            font-weight: 500;
+            text-align: center;
+        }
+        .hint-btn {
+            width: 100%;
+            padding: 11px;
+            background: #00bfff;
+            color: #000;
+            font-size: 0.9rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            text-transform: uppercase;
+            transition: background 0.2s;
+        }
+        .hint-btn:disabled {
+            background: #2a303c;
+            color: #666;
+            cursor: not-allowed;
+        }
+
         .prompt-text {
             font-size: 0.95rem;
             color: #a8b2d1;
@@ -122,11 +172,23 @@
         </div>
 
         <div id="taskTitle" class="task-title">Загрузка...</div>
-        <div id="taskText" class="task-text">⏳ Авторизация...</div>
+        <div id="taskText" class="task-text">⏳ Подключение...</div>
 
-        <div class="prompt-text">Для получения следующего задания введите код:</div>
-        <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
-        <button id="submitBtn" class="btn">ОТПРАВИТЬ КОД</button>
+        <!-- СЕКЦИЯ ПОДСКАЗОК -->
+        <div id="hintContainer" class="hint-container">
+            <div id="hint1Box" class="hint-box hint-1" style="display:none;"></div>
+            <div id="hint2Box" class="hint-box hint-2" style="display:none;"></div>
+            <div id="hintTimerInfo" class="hint-timer-info"></div>
+            <button id="hintBtn" class="hint-btn" style="display:none;">ВЗЯТЬ ПОДСКАЗКУ</button>
+        </div>
+
+        <!-- ВВОД КОДА -->
+        <div id="inputBlock">
+            <div class="prompt-text">Для получения следующего задания введите код:</div>
+            <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
+            <button id="submitBtn" class="btn">ОТПРАВИТЬ КОД</button>
+        </div>
+
         <div id="msgBox" class="msg"></div>
     </div>
 
@@ -138,7 +200,14 @@
         let teamName = "";
         let teamPin = "";
         let lockoutTimer = null;
+        let hintTimerInterval = null;
         let isLocked = false;
+
+        // Данные по подсказкам от сервера
+        let levelStartTime = 0;
+        let hintsTaken = 0;
+        let hint1DelayMs = 10 * 60 * 1000;
+        let hint2DelayMs = 20 * 60 * 1000;
 
         const taskTitle = document.getElementById('taskTitle');
         const taskText = document.getElementById('taskText');
@@ -147,10 +216,16 @@
         const msgBox = document.getElementById('msgBox');
         const teamDisplay = document.getElementById('teamDisplay');
 
+        const hint1Box = document.getElementById('hint1Box');
+        const hint2Box = document.getElementById('hint2Box');
+        const hintBtn = document.getElementById('hintBtn');
+        const hintTimerInfo = document.getElementById('hintTimerInfo');
+        const hintContainer = document.getElementById('hintContainer');
+
         window.addEventListener('load', async () => {
             initTeam();
             await syncWithServer();
-            setInterval(syncWithServer, 10000); // Синхронизация каждые 10 сек
+            setInterval(syncWithServer, 10000); // Синхронизация каждые 10 секунд
         });
 
         function linkify(text) {
@@ -174,7 +249,7 @@
             teamName = prompt("Введите название вашей команды:", teamName) || "";
             if (!teamName) teamName = "Команда_" + Math.floor(Math.random()*1000);
             
-            teamPin = prompt("Придумайте или введите ПИН-код вашей команды (4 цифры):", teamPin) || "";
+            teamPin = prompt("Введите ПИН-код вашей команды (4 цифры):", teamPin) || "";
             if (!teamPin) teamPin = "0000";
 
             localStorage.setItem('syndicate_team_name', teamName);
@@ -187,27 +262,35 @@
             syncWithServer();
         });
 
-        async function syncWithServer() {
+        async function syncWithServer(action = "") {
             if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
 
             try {
-                const response = await fetch(`${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}`);
+                let url = `${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}`;
+                if (action) url += `&action=${action}`;
+
+                const response = await fetch(url);
                 const data = await response.json();
 
                 if (data.status === "ERROR") {
                     taskTitle.textContent = "Ошибка авторизации";
-                    taskText.textContent = data.message + "\n\nНажмите «Сменить», чтобы ввести правильный ПИН-код.";
+                    taskText.textContent = data.message;
                     codeInput.disabled = true;
                     submitBtn.disabled = true;
+                    hintContainer.style.display = "none";
                     return;
                 }
 
                 GAME_LEVELS = data.levels || [];
                 currentLevel = data.currentLevel || 0;
+                levelStartTime = data.levelStartTime || Date.now();
+                hintsTaken = data.hintsTaken || 0;
+                hint1DelayMs = data.hint1DelayMs || (10 * 60 * 1000);
+                hint2DelayMs = data.hint2DelayMs || (20 * 60 * 1000);
 
                 renderLevel();
 
-                // Проверка командного штрафа
+                // Блокировка попыток
                 const now = Date.now();
                 if (data.lockoutUntil && data.lockoutUntil > now) {
                     startLockoutTimer(data.lockoutUntil - now);
@@ -224,13 +307,124 @@
             }
         }
 
+        function renderLevel() {
+            if (GAME_LEVELS.length === 0) return;
+
+            if (currentLevel >= GAME_LEVELS.length) {
+                taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
+                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены!";
+                document.getElementById('inputBlock').style.display = "none";
+                hintContainer.style.display = "none";
+                return;
+            }
+
+            const lvl = GAME_LEVELS[currentLevel];
+            taskTitle.textContent = lvl.title;
+            taskText.innerHTML = linkify(lvl.clue);
+
+            updateHintsUI();
+
+            if (!isLocked) {
+                codeInput.disabled = false;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // ОБНОВЛЕНИЕ ИНТЕРФЕЙСА ПОДСКАЗОК И ТАЙМЕРА
+        function updateHintsUI() {
+            if (GAME_LEVELS.length === 0 || currentLevel >= GAME_LEVELS.length) return;
+
+            const lvl = GAME_LEVELS[currentLevel];
+
+            // Отображение Подсказки 1
+            if (hintsTaken >= 1 && lvl.hint1) {
+                hint1Box.style.display = "block";
+                hint1Box.innerHTML = "<strong>💡 Подсказка 1:</strong><br>" + linkify(lvl.hint1);
+            } else {
+                hint1Box.style.display = "none";
+            }
+
+            // Отображение Подсказки 2 (Прямая наводка)
+            if (hintsTaken >= 2 && lvl.hint2) {
+                hint2Box.style.display = "block";
+                hint2Box.innerHTML = "<strong>🎯 Прямая наводка:</strong><br>" + linkify(lvl.hint2);
+            } else {
+                hint2Box.style.display = "none";
+            }
+
+            // Управление таймером и кнопкой
+            if (hintsTaken >= 2) {
+                hintTimerInfo.textContent = "";
+                hintBtn.style.display = "none";
+            } else {
+                hintBtn.style.display = "block";
+                startHintTimer();
+            }
+        }
+
+        function startHintTimer() {
+            if (hintTimerInterval) clearInterval(hintTimerInterval);
+
+            const tick = () => {
+                const now = Date.now();
+                const elapsed = now - levelStartTime;
+
+                if (hintsTaken === 0) {
+                    const left = hint1DelayMs - elapsed;
+                    if (left <= 0) {
+                        hintTimerInfo.textContent = "💡 Доступна Подсказка 1!";
+                        hintBtn.disabled = false;
+                        hintBtn.textContent = "ВЗЯТЬ ПОДСКАЗКУ 1";
+                        hintBtn.style.background = "#00bfff";
+                        hintBtn.style.color = "#000";
+                    } else {
+                        const mins = Math.floor(left / 60000);
+                        const secs = Math.floor((left % 60000) / 1000);
+                        hintTimerInfo.textContent = `⏱ Подсказка 1 доступна через ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                        hintBtn.disabled = true;
+                        hintBtn.textContent = "ПОДСКАЗКА 1 (ЗАБЛОКИРОВАНО)";
+                        hintBtn.style.background = "#2a303c";
+                        hintBtn.style.color = "#666";
+                    }
+                } else if (hintsTaken === 1) {
+                    const left = hint2DelayMs - elapsed;
+                    if (left <= 0) {
+                        hintTimerInfo.textContent = "🎯 Доступна Прямая наводка!";
+                        hintBtn.disabled = false;
+                        hintBtn.textContent = "ВЗЯТЬ ПРЯМУЮ НАВОДКУ";
+                        hintBtn.style.background = "#ff4d4d";
+                        hintBtn.style.color = "#fff";
+                    } else {
+                        const mins = Math.floor(left / 60000);
+                        const secs = Math.floor((left % 60000) / 1000);
+                        hintTimerInfo.textContent = `⏱ Прямая наводка доступна через ${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                        hintBtn.disabled = true;
+                        hintBtn.textContent = "ПРЯМАЯ НАВОДКА (ЗАБЛОКИРОВАНО)";
+                        hintBtn.style.background = "#2a303c";
+                        hintBtn.style.color = "#666";
+                    }
+                }
+            };
+
+            tick();
+            hintTimerInterval = setInterval(tick, 1000);
+        }
+
+        // КЛИК НА КНОПКУ ПОДСКАЗКИ
+        hintBtn.addEventListener('click', async () => {
+            if (hintBtn.disabled) return;
+
+            hintBtn.disabled = true;
+            hintBtn.textContent = "⏳ Получение...";
+            await syncWithServer("takeHint");
+        });
+
         function startLockoutTimer(durationMs) {
             isLocked = true;
             codeInput.disabled = true;
             submitBtn.disabled = true;
 
             const endTime = Date.now() + durationMs;
-
             if (lockoutTimer) clearInterval(lockoutTimer);
 
             lockoutTimer = setInterval(() => {
@@ -253,28 +447,6 @@
             submitBtn.disabled = false;
             msgBox.className = "msg";
             msgBox.textContent = "";
-        }
-
-        function renderLevel() {
-            if (GAME_LEVELS.length === 0) return;
-
-            if (currentLevel >= GAME_LEVELS.length) {
-                taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
-                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены!";
-                codeInput.style.display = "none";
-                submitBtn.style.display = "none";
-                document.querySelector('.prompt-text').style.display = "none";
-                return;
-            }
-
-            const lvl = GAME_LEVELS[currentLevel];
-            taskTitle.textContent = lvl.title;
-            taskText.innerHTML = linkify(lvl.clue);
-            
-            if (!isLocked) {
-                codeInput.disabled = false;
-                submitBtn.disabled = false;
-            }
         }
 
         function getCoordinates() {
