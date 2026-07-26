@@ -1,559 +1,642 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Игровой Терминал</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            background-color: #0d0f12;
-            color: #e0e0e0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 15px;
-            margin: 0;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            max-width: 460px;
-            background: #161a20;
-            border: 1px solid #2a303c;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-        }
-        .team-bar {
-            font-size: 0.85rem;
-            color: #8892b0;
-            border-bottom: 1px solid #2a303c;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .task-title {
-            font-size: 1.4rem;
-            font-weight: 700;
-            color: #ffcc00;
-            margin-bottom: 12px;
-        }
-        .task-text {
-            font-size: 1.05rem;
-            line-height: 1.5;
-            color: #ffffff;
-            white-space: pre-line;
-            background: #0f1217;
-            padding: 15px;
-            border-radius: 8px;
-            border-left: 4px solid #ffcc00;
-            margin-bottom: 15px;
-            word-break: break-word;
-        }
-        .task-text a, .hint-box a {
-            color: #00ff66;
-            text-decoration: underline;
-            font-weight: 600;
-            word-break: break-all;
-        }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Автоквест — Игровой портал</title>
+  <style>
+    :root {
+      --bg-color: #121214;
+      --card-bg: #1e1e24;
+      --input-bg: #2b2b36;
+      --accent-color: #ffb703;
+      --success-color: #2a9d8f;
+      --error-color: #e63946;
+      --text-color: #e0e0e0;
+      --text-muted: #a0a0b0;
+      --border-radius: 12px;
+    }
 
-        /* БЛОК ПОДСКАЗОК */
-        .hint-container {
-            margin-bottom: 20px;
-        }
-        .hint-box {
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-            margin-bottom: 10px;
-            white-space: pre-line;
-            word-break: break-word;
-        }
-        .hint-1 {
-            background: #0f1923;
-            border-left: 4px solid #00bfff;
-            color: #80d8ff;
-        }
-        .hint-2 {
-            background: #241414;
-            border-left: 4px solid #ff4d4d;
-            color: #ff9999;
-        }
-        .hint-timer-info {
-            font-size: 0.85rem;
-            color: #ffcc00;
-            margin-bottom: 8px;
-            font-weight: 500;
-            text-align: center;
-        }
-        .hint-btn {
-            width: 100%;
-            padding: 11px;
-            background: #00bfff;
-            color: #000;
-            font-size: 0.9rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-transform: uppercase;
-            transition: background 0.2s;
-        }
-        .hint-btn:disabled {
-            background: #2a303c;
-            color: #666;
-            cursor: not-allowed;
-        }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
 
-        .prompt-text {
-            font-size: 0.95rem;
-            color: #a8b2d1;
-            margin-bottom: 10px;
-            font-weight: 500;
-        }
-        .code-input {
-            width: 100%;
-            padding: 14px;
-            font-size: 1.2rem;
-            background: #090b0e;
-            border: 2px solid #2a303c;
-            color: #00ff66;
-            text-align: center;
-            border-radius: 8px;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            outline: none;
-            margin-bottom: 12px;
-        }
-        .code-input:disabled {
-            background: #1f242d;
-            color: #555;
-            border-color: #333;
-        }
-        .btn {
-            width: 100%;
-            padding: 14px;
-            background: #ffcc00;
-            color: #000;
-            font-size: 1rem;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            text-transform: uppercase;
-        }
-        .btn:disabled {
-            background: #333;
-            color: #666;
-            cursor: not-allowed;
-        }
-        .msg {
-            font-size: 0.9rem;
-            text-align: center;
-            margin-top: 12px;
-            min-height: 24px;
-            font-weight: 600;
-        }
-        .msg-err { color: #ff4d4d; }
-        .msg-ok { color: #00ff66; }
-    </style>
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      justify-content: center;
+      padding: 15px;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .card {
+      background-color: var(--card-bg);
+      border-radius: var(--border-radius);
+      padding: 20px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+      border: 1px solid #2d2d38;
+    }
+
+    h1, h2, h3 {
+      color: #fff;
+      margin-bottom: 10px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid #2d2d38;
+      padding-bottom: 10px;
+      margin-bottom: 15px;
+    }
+
+    .team-badge {
+      font-weight: bold;
+      color: var(--accent-color);
+    }
+
+    .level-badge {
+      background-color: var(--accent-color);
+      color: #000;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 14px;
+      background-color: var(--input-bg);
+      border: 1px solid #3d3d4e;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 16px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus {
+      border-color: var(--accent-color);
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      background-color: var(--accent-color);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      background-color: #4a4a5a;
+      color: #8a8a9a;
+      cursor: not-allowed;
+    }
+
+    .btn-secondary {
+      background-color: #3a3a4c;
+      color: #fff;
+      margin-top: 8px;
+    }
+
+    .clue-text {
+      font-size: 1.1em;
+      line-height: 1.5;
+      white-space: pre-line;
+      margin-bottom: 15px;
+      background-color: #16161a;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid var(--accent-color);
+    }
+
+    .hint-box {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      background-color: #252530;
+      border: 1px dashed #444458;
+      font-size: 0.95em;
+    }
+
+    .hint-box.active {
+      border: 1px solid var(--accent-color);
+      background-color: #2b281e;
+    }
+
+    .status-msg {
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 10px;
+      font-weight: bold;
+      text-align: center;
+      display: none;
+    }
+
+    .status-msg.success {
+      background-color: rgba(42, 157, 143, 0.2);
+      color: var(--success-color);
+      border: 1px solid var(--success-color);
+      display: block;
+    }
+
+    .status-msg.error {
+      background-color: rgba(230, 57, 70, 0.2);
+      color: var(--error-color);
+      border: 1px solid var(--error-color);
+      display: block;
+    }
+
+    /* Навигация после завершения игры */
+    #finished-navigation {
+      display: none;
+      background-color: #1a1a24;
+      border: 1px solid var(--accent-color);
+      padding: 15px;
+      border-radius: var(--border-radius);
+      margin-bottom: 15px;
+    }
+
+    .finished-title {
+      color: var(--accent-color);
+      text-align: center;
+      font-weight: bold;
+      margin-bottom: 12px;
+    }
+
+    .level-buttons-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .nav-lvl-btn {
+      width: auto;
+      padding: 8px 14px;
+      font-size: 14px;
+      background-color: #2b2b38;
+      color: #fff;
+      border: 1px solid #3d3d50;
+      border-radius: 6px;
+    }
+
+    .nav-lvl-btn.active {
+      background-color: var(--accent-color);
+      color: #000;
+      border-color: var(--accent-color);
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 3px solid rgba(0,0,0,.3);
+      border-radius: 50%;
+      border-top-color: #000;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="team-bar">
-            <span>Команда: <strong id="teamDisplay" style="color: #fff;">—</strong></span>
-            <span id="changeTeamBtn" style="cursor:pointer; text-decoration:underline;">Сменить</span>
-        </div>
+<div class="container">
 
-        <div id="taskTitle" class="task-title">Загрузка...</div>
-        <div id="taskText" class="task-text">⏳ Подключение...</div>
+  <!-- ЭКРАН АВТОРИЗАЦИИ -->
+  <div id="auth-screen" class="card">
+    <h2>Вход в игру</h2>
+    <p style="color: var(--text-muted); margin-bottom: 15px; font-size: 0.9em;">Введите название вашей команды и ПИН-код для подключения к системе.</p>
+    <input type="text" id="auth-team" placeholder="Название команды">
+    <input type="password" id="auth-pin" placeholder="ПИН-код">
+    <button id="auth-btn" onclick="login()">Войти в систему</button>
+    <div id="auth-msg" class="status-msg"></div>
+  </div>
 
-        <!-- СЕКЦИЯ ПОДСКАЗОК -->
-        <div id="hintContainer" class="hint-container">
-            <div id="hint1Box" class="hint-box hint-1" style="display:none;"></div>
-            <div id="hint2Box" class="hint-box hint-2" style="display:none;"></div>
-            <div id="hintTimerInfo" class="hint-timer-info"></div>
-            <button id="hintBtn" class="hint-btn" style="display:none;">ВЗЯТЬ ПОДСКАЗКУ</button>
-        </div>
-
-        <!-- ВВОД КОДА -->
-        <div id="inputBlock">
-            <div class="prompt-text">Для получения следующего задания введите код:</div>
-            <input type="text" id="codeInput" class="code-input" placeholder="Введите код..." autocomplete="off">
-            <button id="submitBtn" class="btn">ОТПРАВИТЬ КОД</button>
-        </div>
-
-        <div id="msgBox" class="msg"></div>
+  <!-- ОСНОВНОЙ ИГРОВОЙ ЭКРАН -->
+  <div id="game-screen" style="display: none;">
+    
+    <!-- Панель финиша (выбор уровней) -->
+    <div id="finished-navigation">
+      <div class="finished-title">🏁 Игра завершена! Выберите задание:</div>
+      <div id="level-buttons-container" class="level-buttons-grid"></div>
     </div>
 
-    <script>
-        const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymyo45TOB3pzo61x6Vk4v1cG0URU69Xvcv6JsdvjqFzm9MYPDfiucojmM9FpE6igx9Tw/exec";
+    <!-- Карточка задания -->
+    <div class="card">
+      <div class="header-bar">
+        <span class="team-badge" id="display-team-name">Команда</span>
+        <span class="level-badge" id="display-level-num">Уровень 1</span>
+      </div>
 
-        let GAME_LEVELS = [];
-        let currentLevel = 0;
-        let teamName = "";
-        let teamPin = "";
-        let lockoutTimer = null;
-        let hintTimerInterval = null;
-        let isLocked = false;
+      <h2 id="task-title">Загрузка задания...</h2>
+      <div class="clue-text" id="task-clue">Пожалуйста, подождите...</div>
 
-        let levelStartTime = 0;
-        let hintsTaken = 0;
-        let hint1DelayMs = 10 * 60 * 1000;
-        let hint2DelayMs = 20 * 60 * 1000;
+      <!-- Блок подсказок -->
+      <div id="hints-container">
+        <div id="hint1-box" class="hint-box">
+          <div id="hint1-text">Подсказка 1: Загрузка...</div>
+          <button id="hint1-btn" class="btn-secondary" style="display:none;" onclick="requestHint(1)">Взять подсказку 1</button>
+        </div>
+        <div id="hint2-box" class="hint-box" style="margin-top: 8px;">
+          <div id="hint2-text">Подсказка 2: Загрузка...</div>
+          <button id="hint2-btn" class="btn-secondary" style="display:none;" onclick="requestHint(2)">Взять подсказку 2</button>
+        </div>
+      </div>
+    </div>
 
-        const taskTitle = document.getElementById('taskTitle');
-        const taskText = document.getElementById('taskText');
-        const codeInput = document.getElementById('codeInput');
-        const submitBtn = document.getElementById('submitBtn');
-        const msgBox = document.getElementById('msgBox');
-        const teamDisplay = document.getElementById('teamDisplay');
+    <!-- Форма ввода кода -->
+    <div id="code-form-container" class="card" style="margin-top: 15px;">
+      <h3>Ввод кода</h3>
+      <input type="text" id="code-input" placeholder="Введите код (например: 12R34)" autocomplete="off" autocapitalize="characters">
+      <button id="submit-code-btn" onclick="submitCode()">Отправить код</button>
+      <div id="game-msg" class="status-msg"></div>
+    </div>
 
-        const hint1Box = document.getElementById('hint1Box');
-        const hint2Box = document.getElementById('hint2Box');
-        const hintBtn = document.getElementById('hintBtn');
-        const hintTimerInfo = document.getElementById('hintTimerInfo');
-        const hintContainer = document.getElementById('hintContainer');
+  </div>
 
-        window.addEventListener('load', async () => {
-            initTeam();
-            await syncWithServer();
-            setInterval(syncWithServer, 10000);
-        });
+</div>
 
-        function linkify(text) {
-            if (!text) return "";
-            let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            return escaped.replace(/(https?:\/\/[^\s]+)/g, url => `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`);
-        }
+<script>
+  // =================================================================
+  // ВСТАВЬТЕ СЮДА ССЫЛКУ НА ВАШ GOOGLE APPS SCRIPT
+  // =================================================================
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbymyo45TOB3pzo61x6Vk4v1cG0URU69Xvcv6JsdvjqFzm9MYPDfiucojmM9FpE6igx9Tw/exec";
 
-        function initTeam() {
-            teamName = localStorage.getItem('syndicate_team_name') || "";
-            teamPin = localStorage.getItem('syndicate_team_pin') || "";
+  // Состояние приложения
+  let teamName = localStorage.getItem("quest_team") || "";
+  let teamPin = localStorage.getItem("quest_pin") || "";
+  
+  let currentLevel = 0;
+  let selectedReviewLevel = 0;
+  let isFinished = false;
+  let isSubmitting = false;
 
-            if (!teamName || !teamPin) {
-                promptCredentials();
-            } else {
-                teamDisplay.textContent = teamName;
-            }
-        }
+  let levelStartTime = 0;
+  let hintsTaken = 0;
+  let hint1DelayMs = 600000;
+  let hint2DelayMs = 1200000;
+  let lockoutUntil = 0;
 
-        function promptCredentials() {
-            teamName = prompt("Введите название вашей команды:", teamName) || "";
-            if (!teamName) teamName = "Команда_" + Math.floor(Math.random()*1000);
+  let allGameLevels = [];
+  let timerInterval = null;
+  let syncInterval = null;
+
+  // Инициализация
+  window.onload = function() {
+    if (teamName && teamPin) {
+      document.getElementById("auth-team").value = teamName;
+      document.getElementById("auth-pin").value = teamPin;
+      login();
+    }
+  };
+
+  // Вход в систему
+  function login() {
+    const t = document.getElementById("auth-team").value.trim();
+    const p = document.getElementById("auth-pin").value.trim();
+
+    if (!t || !p) {
+      showMsg("auth-msg", "Заполните название команды и ПИН!", "error");
+      return;
+    }
+
+    teamName = t;
+    teamPin = p;
+
+    const btn = document.getElementById("auth-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Вход...';
+
+    fetchState("sync", {}, (data) => {
+      btn.disabled = false;
+      btn.textContent = "Войти в систему";
+
+      if (data.status === "OK") {
+        localStorage.setItem("quest_team", teamName);
+        localStorage.setItem("quest_pin", teamPin);
+
+        document.getElementById("auth-screen").style.display = "none";
+        document.getElementById("game-screen").style.display = "block";
+        document.getElementById("display-team-name").textContent = teamName;
+
+        processServerData(data);
+
+        // Запуск фоновых таймеров
+        if (!timerInterval) timerInterval = setInterval(updateTimers, 1000);
+        if (!syncInterval) syncInterval = setInterval(backgroundSync, 5000);
+      } else {
+        showMsg("auth-msg", data.message || "Ошибка входа", "error");
+      }
+    });
+  }
+
+  // Фоновая синхронизация
+  function backgroundSync() {
+    if (isSubmitting) return; // Пропускаем опрос во время отправки кода
+
+    fetchState("sync", {}, (data) => {
+      if (data && data.status === "OK") {
+        processServerData(data);
+      }
+    });
+  }
+
+  // Обработка ответа сервера
+  function processServerData(data) {
+    allGameLevels = data.levels || [];
+    isFinished = !!data.isFinished;
+    
+    // Защита от откатов уровня (не понижаем уровень, если игра идет)
+    if (!isFinished && data.currentLevel >= currentLevel) {
+      currentLevel = data.currentLevel;
+    } else if (isFinished) {
+      currentLevel = data.currentLevel;
+    }
+
+    levelStartTime = data.levelStartTime || levelStartTime;
+    hintsTaken = data.hintsTaken !== undefined ? data.hintsTaken : hintsTaken;
+    hint1DelayMs = data.hint1DelayMs || hint1DelayMs;
+    hint2DelayMs = data.hint2DelayMs || hint2DelayMs;
+    lockoutUntil = data.lockoutUntil || lockoutUntil;
+
+    if (isFinished) {
+      renderFinishedState();
+    } else {
+      renderPlayingState();
+    }
+
+    updateTimers();
+  }
+
+  // Отображение игры (в процессе)
+  function renderPlayingState() {
+    document.getElementById("finished-navigation").style.display = "none";
+    document.getElementById("code-form-container").style.display = "block";
+
+    document.getElementById("display-level-num").textContent = "Уровень " + (currentLevel + 1);
+
+    const levelData = allGameLevels[currentLevel];
+    if (levelData) {
+      document.getElementById("task-title").textContent = levelData.title || ("Задание " + (currentLevel + 1));
+      document.getElementById("task-clue").textContent = levelData.clue || "Нет текста задания";
+    }
+  }
+
+  // Отображение финиша
+  function renderFinishedState() {
+    document.getElementById("code-form-container").style.display = "none";
+    document.getElementById("finished-navigation").style.display = "block";
+    document.getElementById("display-level-num").textContent = "ФИНИШ 🏁";
+
+    const container = document.getElementById("level-buttons-container");
+    container.innerHTML = "";
+
+    allGameLevels.forEach((lvl, idx) => {
+      const btn = document.createElement("button");
+      btn.className = "nav-lvl-btn" + (idx === selectedReviewLevel ? " active" : "");
+      btn.textContent = (idx + 1);
+      btn.onclick = () => {
+        selectedReviewLevel = idx;
+        renderFinishedState();
+      };
+      container.appendChild(btn);
+    });
+
+    const reviewData = allGameLevels[selectedReviewLevel];
+    if (reviewData) {
+      document.getElementById("task-title").textContent = reviewData.title || ("Задание " + (selectedReviewLevel + 1));
+      document.getElementById("task-clue").textContent = reviewData.clue || "";
+
+      // В режиме финиша показываем все доступные подсказки выбранного уровня
+      const h1Box = document.getElementById("hint1-box");
+      const h2Box = document.getElementById("hint2-box");
+      
+      document.getElementById("hint1-btn").style.display = "none";
+      document.getElementById("hint2-btn").style.display = "none";
+
+      if (reviewData.hint1) {
+        h1Box.style.display = "block";
+        h1Box.className = "hint-box active";
+        document.getElementById("hint1-text").textContent = "💡 Подсказка 1: " + reviewData.hint1;
+      } else {
+        h1Box.style.display = "none";
+      }
+
+      if (reviewData.hint2) {
+        h2Box.style.display = "block";
+        h2Box.className = "hint-box active";
+        document.getElementById("hint2-text").textContent = "💡 Подсказка 2: " + reviewData.hint2;
+      } else {
+        h2Box.style.display = "none";
+      }
+    }
+  }
+
+  // Обновление таймеров подсказок и блокировки
+  function updateTimers() {
+    const now = new Date().getTime();
+
+    // Проверка блокировки ввода
+    const submitBtn = document.getElementById("submit-code-btn");
+    const codeInput = document.getElementById("code-input");
+
+    if (!isFinished && lockoutUntil > now) {
+      const remSec = Math.ceil((lockoutUntil - now) / 1000);
+      submitBtn.disabled = true;
+      codeInput.disabled = true;
+      showMsg("game-msg", `🚫 БЛОКИРОВКА! Дополнительный ввод через ${remSec} сек.`, "error");
+    } else if (!isFinished && !isSubmitting) {
+      submitBtn.disabled = false;
+      codeInput.disabled = false;
+    }
+
+    // В режиме финиша таймеры подсказок не рассчитываем
+    if (isFinished) return;
+
+    const elapsed = now - levelStartTime;
+    const levelData = allGameLevels[currentLevel] || {};
+
+    // Подсказка 1
+    const h1Box = document.getElementById("hint1-box");
+    const h1Btn = document.getElementById("hint1-btn");
+    const h1Text = document.getElementById("hint1-text");
+
+    if (hintsTaken >= 1 && levelData.hint1) {
+      h1Box.className = "hint-box active";
+      h1Btn.style.display = "none";
+      h1Text.textContent = "💡 Подсказка 1: " + levelData.hint1;
+    } else {
+      const h1Rem = HINT1_DELAY_MS_CALC() - elapsed;
+      if (h1Rem <= 0) {
+        h1Box.className = "hint-box";
+        h1Btn.style.display = "block";
+        h1Text.textContent = "Подсказка 1 готова к получению!";
+      } else {
+        h1Box.className = "hint-box";
+        h1Btn.style.display = "none";
+        h1Text.textContent = `Подсказка 1 через: ${formatTime(h1Rem)}`;
+      }
+    }
+
+    // Подсказка 2
+    const h2Box = document.getElementById("hint2-box");
+    const h2Btn = document.getElementById("hint2-btn");
+    const h2Text = document.getElementById("hint2-text");
+
+    if (hintsTaken >= 2 && levelData.hint2) {
+      h2Box.className = "hint-box active";
+      h2Btn.style.display = "none";
+      h2Text.textContent = "💡 Подсказка 2: " + levelData.hint2;
+    } else {
+      const h2Rem = HINT2_DELAY_MS_CALC() - elapsed;
+      if (h2Rem <= 0 && hintsTaken >= 1) {
+        h2Box.className = "hint-box";
+        h2Btn.style.display = "block";
+        h2Text.textContent = "Подсказка 2 готова к получению!";
+      } else {
+        h2Box.className = "hint-box";
+        h2Btn.style.display = "none";
+        h2Text.textContent = hintsTaken < 1 ? "Подсказка 2 (сначала возьмите первую)" : `Подсказка 2 через: ${formatTime(h2Rem)}`;
+      }
+    }
+  }
+
+  function HINT1_DELAY_MS_CALC() { return hint1DelayMs; }
+  function HINT2_DELAY_MS_CALC() { return hint2DelayMs; }
+
+  // Запрос подсказки
+  function requestHint(hintNum) {
+    fetchState("takeHint", {}, (data) => {
+      if (data.status === "OK") {
+        processServerData(data);
+      }
+    });
+  }
+
+  // Отправка кода
+  function submitCode() {
+    const codeEl = document.getElementById("code-input");
+    const code = codeEl.value.trim();
+
+    if (!code) {
+      showMsg("game-msg", "Введите код!", "error");
+      return;
+    }
+
+    isSubmitting = true;
+    const btn = document.getElementById("submit-code-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Проверка...';
+
+    // Получаем геолокацию перед отправкой
+    getGPSLocation((coords, mapUrl) => {
+      fetchState("submitCode", { code: code, coords: coords, mapUrl: mapUrl }, (data) => {
+        isSubmitting = false;
+        btn.disabled = false;
+        btn.textContent = "Отправить код";
+
+        if (data.status === "OK") {
+          if (data.result === "CORRECT" || data.result === "FINISHED") {
+            codeEl.value = "";
+            showMsg("game-msg", data.message, "success");
             
-            teamPin = prompt("Введите ПИН-код вашей команды (4 цифры):", teamPin) || "";
-            if (!teamPin) teamPin = "0000";
-
-            localStorage.setItem('syndicate_team_name', teamName);
-            localStorage.setItem('syndicate_team_pin', teamPin);
-            teamDisplay.textContent = teamName;
-        }
-
-        document.getElementById('changeTeamBtn').addEventListener('click', () => {
-            promptCredentials();
-            syncWithServer();
-        });
-
-        async function syncWithServer(action = "") {
-            if (!GOOGLE_SCRIPT_URL || GOOGLE_SCRIPT_URL.includes("ВАШ_СКРИПТ_ИД")) return;
-
-            try {
-                let url = `${GOOGLE_SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}`;
-                if (action) url += `&action=${action}`;
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.status === "ERROR") {
-                    taskTitle.textContent = "Ошибка авторизации";
-                    taskText.textContent = data.message;
-                    codeInput.disabled = true;
-                    submitBtn.disabled = true;
-                    hintContainer.style.display = "none";
-                    return;
-                }
-
-                GAME_LEVELS = data.levels || [];
-                currentLevel = data.currentLevel || 0;
-                levelStartTime = data.levelStartTime || Date.now();
-                hintsTaken = data.hintsTaken || 0;
-                hint1DelayMs = data.hint1DelayMs || (10 * 60 * 1000);
-                hint2DelayMs = data.hint2DelayMs || (20 * 60 * 1000);
-
-                renderLevel();
-
-                const now = Date.now();
-                if (data.lockoutUntil && data.lockoutUntil > now) {
-                    startLockoutTimer(data.lockoutUntil - now);
-                } else if (isLocked) {
-                    unlockInterface();
-                } else if (data.wrongAttempts > 0) {
-                    msgBox.className = "msg msg-err";
-                    msgBox.textContent = `⚠️ Команда ошиблась! Осталось попыток: ${3 - data.wrongAttempts}`;
-                } else {
-                    msgBox.textContent = "";
-                }
-            } catch (err) {
-                console.error("Ошибка синхронизации:", err);
+            // Сразу увеличиваем текущий уровень локально
+            if (data.currentLevel !== undefined) {
+              currentLevel = data.currentLevel;
             }
+            processServerData(data);
+          } else {
+            showMsg("game-msg", data.message, "error");
+            if (data.lockoutUntil) lockoutUntil = data.lockoutUntil;
+          }
+        } else {
+          showMsg("game-msg", data.message || "Ошибка проверки кода", "error");
         }
+      });
+    });
+  }
 
-        function renderLevel() {
-            if (GAME_LEVELS.length === 0) return;
+  // Вспомогательная функция запросов к Google Apps Script
+  function fetchState(action, extraParams, callback) {
+    let url = `${SCRIPT_URL}?team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}&action=${action}`;
+    
+    for (let key in extraParams) {
+      url += `&${key}=${encodeURIComponent(extraParams[key])}`;
+    }
 
-            if (currentLevel >= GAME_LEVELS.length) {
-                taskTitle.textContent = "ИГРА ОКОНЧЕНА!";
-                taskText.textContent = "🎉 Поздравляем! Все задания успешно выполнены!";
-                document.getElementById('inputBlock').style.display = "none";
-                hintContainer.style.display = "none";
-                return;
-            }
+    fetch(url)
+      .then(res => res.json())
+      .then(data => callback(data))
+      .catch(err => {
+        console.error("Network Error:", err);
+        isSubmitting = false;
+        callback({ status: "ERROR", message: "Ошибка сети. Проверьте интернет." });
+      });
+  }
 
-            const lvl = GAME_LEVELS[currentLevel];
-            taskTitle.textContent = lvl.title;
-            taskText.innerHTML = linkify(lvl.clue);
+  // Вспомогательная функция сборки GPS
+  function getGPSLocation(callback) {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(6);
+          const lon = pos.coords.longitude.toFixed(6);
+          const coordsStr = `${lat}, ${lon}`;
+          const mapUrl = `https://maps.yandex.ru/?text=${lat},${lon}`;
+          callback(coordsStr, mapUrl);
+        },
+        (err) => {
+          callback("Геолокация недоступна", "—");
+        },
+        { timeout: 5000, enableHighAccuracy: true }
+      );
+    } else {
+      callback("Не поддерживается", "—");
+    }
+  }
 
-            updateHintsUI();
+  function showMsg(elementId, text, type) {
+    const el = document.getElementById(elementId);
+    el.textContent = text;
+    el.className = `status-msg ${type}`;
+  }
 
-            if (!isLocked) {
-                codeInput.disabled = false;
-                submitBtn.disabled = false;
-            }
-        }
+  function formatTime(ms) {
+    if (ms <= 0) return "00:00";
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
+  }
+</script>
 
-        function updateHintsUI() {
-            if (GAME_LEVELS.length === 0 || currentLevel >= GAME_LEVELS.length) return;
-
-            const lvl = GAME_LEVELS[currentLevel];
-
-            if (hintsTaken >= 1 && lvl.hint1) {
-                hint1Box.style.display = "block";
-                hint1Box.innerHTML = "<strong>💡 Подсказка 1:</strong><br>" + linkify(lvl.hint1);
-            } else {
-                hint1Box.style.display = "none";
-            }
-
-            if (hintsTaken >= 2 && lvl.hint2) {
-                hint2Box.style.display = "block";
-                hint2Box.innerHTML = "<strong>🎯 Прямая наводка:</strong><br>" + linkify(lvl.hint2);
-            } else {
-                hint2Box.style.display = "none";
-            }
-
-            if (hintsTaken >= 2) {
-                hintTimerInfo.textContent = "";
-                hintBtn.style.display = "none";
-            } else {
-                hintBtn.style.display = "block";
-                startHintTimer();
-            }
-        }
-
-        function startHintTimer() {
-            if (hintTimerInterval) clearInterval(hintTimerInterval);
-
-            const tick = () => {
-                const now = Date.now();
-                const elapsed = now - levelStartTime;
-
-                if (hintsTaken === 0) {
-                    const left = hint1DelayMs - elapsed;
-                    if (left <= 0) {
-                        hintTimerInfo.textContent = "💡 Доступна Подсказка 1!";
-                        hintBtn.disabled = false;
-                        hintBtn.textContent = "ВЗЯТЬ ПОДСКАЗКУ 1";
-                        hintBtn.style.background = "#00bfff";
-                        hintBtn.style.color = "#000";
-                    } else {
-                        const mins = Math.floor(left / 60000);
-                        const secs = Math.floor((left % 60000) / 1000);
-                        hintTimerInfo.textContent = `⏱ Подсказка 1 доступна через ${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                        hintBtn.disabled = true;
-                        hintBtn.textContent = "ПОДСКАЗКА 1 (ЗАБЛОКИРОВАНО)";
-                        hintBtn.style.background = "#2a303c";
-                        hintBtn.style.color = "#666";
-                    }
-                } else if (hintsTaken === 1) {
-                    const left = hint2DelayMs - elapsed;
-                    if (left <= 0) {
-                        hintTimerInfo.textContent = "🎯 Доступна Прямая наводка!";
-                        hintBtn.disabled = false;
-                        hintBtn.textContent = "ВЗЯТЬ ПРЯМУЮ НАВОДКУ";
-                        hintBtn.style.background = "#ff4d4d";
-                        hintBtn.style.color = "#fff";
-                    } else {
-                        const mins = Math.floor(left / 60000);
-                        const secs = Math.floor((left % 60000) / 1000);
-                        hintTimerInfo.textContent = `⏱ Прямая наводка доступна через ${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                        hintBtn.disabled = true;
-                        hintBtn.textContent = "ПРЯМАЯ НАВОДКА (ЗАБЛОКИРОВАНО)";
-                        hintBtn.style.background = "#2a303c";
-                        hintBtn.style.color = "#666";
-                    }
-                }
-            };
-
-            tick();
-            hintTimerInterval = setInterval(tick, 1000);
-        }
-
-        hintBtn.addEventListener('click', async () => {
-            if (hintBtn.disabled) return;
-            hintBtn.disabled = true;
-            hintBtn.textContent = "⏳ Получение...";
-            await syncWithServer("takeHint");
-        });
-
-        function startLockoutTimer(durationMs) {
-            isLocked = true;
-            codeInput.disabled = true;
-            submitBtn.disabled = true;
-
-            const endTime = Date.now() + durationMs;
-            if (lockoutTimer) clearInterval(lockoutTimer);
-
-            lockoutTimer = setInterval(() => {
-                const left = endTime - Date.now();
-                if (left <= 0) {
-                    unlockInterface();
-                } else {
-                    const minutes = Math.floor(left / 60000);
-                    const seconds = Math.floor((left % 60000) / 1000);
-                    msgBox.className = "msg msg-err";
-                    msgBox.textContent = `🚫 КОМАНДНЫЙ ШТРАФ! Блокировка: ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-                }
-            }, 1000);
-        }
-
-        function unlockInterface() {
-            if (lockoutTimer) clearInterval(lockoutTimer);
-            isLocked = false;
-            codeInput.disabled = false;
-            submitBtn.disabled = false;
-            msgBox.className = "msg";
-            msgBox.textContent = "";
-        }
-
-        function getCoordinates() {
-            return new Promise((resolve) => {
-                if (!("geolocation" in navigator)) {
-                    resolve({ coords: "Не поддерживается", mapUrl: "—" });
-                    return;
-                }
-
-                let resolved = false;
-                const timer = setTimeout(() => {
-                    if (!resolved) {
-                        resolved = true;
-                        resolve({ coords: "Таймаут GPS", mapUrl: "—" });
-                    }
-                }, 2500);
-
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => {
-                        if (!resolved) {
-                            resolved = true;
-                            clearTimeout(timer);
-                            const lat = pos.coords.latitude.toFixed(6);
-                            const lng = pos.coords.longitude.toFixed(6);
-                            resolve({
-                                coords: `${lat}, ${lng}`,
-                                mapUrl: `https://maps.yandex.ru/?text=${lat},${lng}`
-                            });
-                        }
-                    },
-                    () => {
-                        if (!resolved) {
-                            resolved = true;
-                            clearTimeout(timer);
-                            resolve({ coords: "GPS выключен", mapUrl: "—" });
-                        }
-                    },
-                    { enableHighAccuracy: true, timeout: 2000, maximumAge: 0 }
-                );
-            });
-        }
-
-        // ОТПРАВКА КОДА
-        submitBtn.addEventListener('click', async () => {
-            if (codeInput.disabled || isLocked) return;
-            const userCode = codeInput.value.trim();
-
-            if (!userCode) {
-                msgBox.className = "msg msg-err";
-                msgBox.textContent = "Введите код!";
-                return;
-            }
-
-            submitBtn.disabled = true;
-            codeInput.disabled = true;
-            msgBox.className = "msg";
-            msgBox.style.color = "#a8b2d1";
-            msgBox.textContent = "⏳ Проверка кода...";
-
-            try {
-                const geoData = await getCoordinates();
-
-                let url = `${GOOGLE_SCRIPT_URL}?action=submitCode&team=${encodeURIComponent(teamName)}&pin=${encodeURIComponent(teamPin)}&code=${encodeURIComponent(userCode)}&coords=${encodeURIComponent(geoData.coords)}&mapUrl=${encodeURIComponent(geoData.mapUrl)}`;
-
-                const response = await fetch(url);
-                const data = await response.json();
-
-                if (data.status === "ERROR") {
-                    msgBox.className = "msg msg-err";
-                    msgBox.textContent = data.message;
-                    submitBtn.disabled = false;
-                    codeInput.disabled = false;
-                    return;
-                }
-
-                if (data.result === "CORRECT") {
-                    msgBox.className = "msg msg-ok";
-                    msgBox.textContent = data.message || "🎉 Код верный!";
-                    codeInput.value = "";
-
-                    // Мгновенное обновление уровня из ответа сервера
-                    if (data.levels) GAME_LEVELS = data.levels;
-                    if (data.currentLevel !== undefined) currentLevel = data.currentLevel;
-                    if (data.levelStartTime) levelStartTime = data.levelStartTime;
-                    hintsTaken = data.hintsTaken || 0;
-
-                    renderLevel();
-
-                    setTimeout(() => {
-                        msgBox.textContent = "";
-                    }, 2500);
-
-                } else if (data.result === "WRONG") {
-                    codeInput.value = "";
-                    if (data.lockoutMs > 0) {
-                        startLockoutTimer(data.lockoutMs);
-                    } else {
-                        msgBox.className = "msg msg-err";
-                        msgBox.textContent = `❌ Неверный код! Осталось попыток: ${3 - data.wrongAttempts}`;
-                        submitBtn.disabled = false;
-                        codeInput.disabled = false;
-                    }
-                } else if (data.result === "FINISHED") {
-                    msgBox.className = "msg msg-ok";
-                    msgBox.textContent = "Игра уже завершена!";
-                }
-
-            } catch (err) {
-                console.error("Ошибка проверки кода:", err);
-                msgBox.className = "msg msg-err";
-                msgBox.textContent = "Ошибка связи с сервером. Попробуйте ещё раз.";
-                submitBtn.disabled = false;
-                codeInput.disabled = false;
-            }
-        });
-    </script>
 </body>
 </html>
