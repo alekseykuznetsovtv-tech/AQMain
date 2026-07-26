@@ -132,6 +132,12 @@
       padding: 15px;
       border-radius: 8px;
       border-left: 4px solid var(--accent-color);
+      word-break: break-word;
+    }
+
+    .clue-text a, .hint-box a {
+      color: var(--accent-color);
+      text-decoration: underline;
     }
 
     .hint-box {
@@ -141,6 +147,7 @@
       background-color: #252530;
       border: 1px dashed #444458;
       font-size: 0.95em;
+      word-break: break-word;
     }
 
     .hint-box.active {
@@ -384,7 +391,7 @@
     allGameLevels = data.levels || [];
     isFinished = !!data.isFinished;
     
-    if (!isFinished && data.currentLevel >= currentLevel) {
+    if (!isFinished && data.currentLevel !== undefined && data.currentLevel > currentLevel) {
       currentLevel = data.currentLevel;
     } else if (isFinished) {
       currentLevel = data.currentLevel;
@@ -425,17 +432,27 @@
     }
   }
 
+  // Вспомогательная функция для превращения обычных ссылок в кликабельные HTML-ссылки
+  function formatTextWithLinks(text) {
+    if (!text) return "";
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    return text.replace(urlRegex, '<a href="$1" target="_blank">$1</a>');
+  }
+
   // Отображение игры (в процессе)
   function renderPlayingState() {
     document.getElementById("finished-navigation").style.display = "none";
     document.getElementById("code-form-container").style.display = "block";
+    
+    // Сбрасываем старое сообщение об успехе/ошибке при смене уровня
+    document.getElementById("game-msg").style.display = "none";
 
     document.getElementById("display-level-num").textContent = "Уровень " + (currentLevel + 1);
 
     const levelData = allGameLevels[currentLevel];
     if (levelData) {
       document.getElementById("task-title").textContent = levelData.title || ("Задание " + (currentLevel + 1));
-      document.getElementById("task-clue").textContent = levelData.clue || "Нет текста задания";
+      document.getElementById("task-clue").innerHTML = formatTextWithLinks(levelData.clue || "Нет текста задания");
     }
   }
 
@@ -462,7 +479,7 @@
     const reviewData = allGameLevels[selectedReviewLevel];
     if (reviewData) {
       document.getElementById("task-title").textContent = reviewData.title || ("Задание " + (selectedReviewLevel + 1));
-      document.getElementById("task-clue").textContent = reviewData.clue || "";
+      document.getElementById("task-clue").innerHTML = formatTextWithLinks(reviewData.clue || "");
 
       const h1Box = document.getElementById("hint1-box");
       const h2Box = document.getElementById("hint2-box");
@@ -473,7 +490,7 @@
       if (reviewData.hint1) {
         h1Box.style.display = "block";
         h1Box.className = "hint-box active";
-        document.getElementById("hint1-text").textContent = "💡 Подсказка 1: " + reviewData.hint1;
+        document.getElementById("hint1-text").innerHTML = "💡 Подсказка 1: " + formatTextWithLinks(reviewData.hint1);
       } else {
         h1Box.style.display = "none";
       }
@@ -481,7 +498,7 @@
       if (reviewData.hint2) {
         h2Box.style.display = "block";
         h2Box.className = "hint-box active";
-        document.getElementById("hint2-text").textContent = "💡 Подсказка 2: " + reviewData.hint2;
+        document.getElementById("hint2-text").innerHTML = "💡 Подсказка 2: " + formatTextWithLinks(reviewData.hint2);
       } else {
         h2Box.style.display = "none";
       }
@@ -518,7 +535,7 @@
     if (hintsTaken >= 1 && levelData.hint1) {
       h1Box.className = "hint-box active";
       h1Btn.style.display = "none";
-      h1Text.textContent = "💡 Подсказка 1: " + levelData.hint1;
+      h1Text.innerHTML = "💡 Подсказка 1: " + formatTextWithLinks(levelData.hint1);
     } else {
       const h1Rem = hint1DelayMs - elapsed;
       if (h1Rem <= 0) {
@@ -540,7 +557,7 @@
     if (hintsTaken >= 2 && levelData.hint2) {
       h2Box.className = "hint-box active";
       h2Btn.style.display = "none";
-      h2Text.textContent = "💡 Подсказка 2: " + levelData.hint2;
+      h2Text.innerHTML = "💡 Подсказка 2: " + formatTextWithLinks(levelData.hint2);
     } else {
       const h2Rem = hint2DelayMs - elapsed;
       if (h2Rem <= 0 && hintsTaken >= 1) {
