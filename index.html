@@ -122,6 +122,15 @@
       color: #fff;
       margin-top: 8px;
     }
+    
+    .btn-logout {
+      background-color: #2b2b36;
+      border: 1px solid #3d3d4e;
+      color: var(--text-muted);
+      margin-top: 20px;
+      font-size: 14px;
+      padding: 10px;
+    }
 
     .clue-text {
       font-size: 1.1em;
@@ -263,10 +272,6 @@
     </div>
 
     <!-- Карточка задания -->
-    <button onclick="logout()" class="btn-secondary" style="margin-top: 15px; background-color: #555;">
-  🚪 Выйти из команды
-</button>
-
     <div class="card">
       <div class="header-bar">
         <span class="team-badge" id="display-team-name">Команда</span>
@@ -299,6 +304,11 @@
       <button id="submit-code-btn" onclick="submitCode()">Отправить код</button>
       <div id="game-msg" class="status-msg"></div>
     </div>
+    
+    <!-- Кнопка выхода для сброса прогресса устройства -->
+    <button onclick="logout()" class="btn-logout">
+      🚪 Выйти из профиля команды
+    </button>
 
   </div>
 
@@ -336,17 +346,17 @@
       document.getElementById("auth-team").value = teamName;
       document.getElementById("auth-pin").value = teamPin;
       login();
-
-    function logout() {
-  if (confirm("Вы действительно хотите выйти из профиля команды?")) {
-    localStorage.removeItem("quest_team");
-    localStorage.removeItem("quest_pin");
-    location.reload();
-  }
-}
-
     }
   };
+
+  // Выход из профиля команды (сброс)
+  function logout() {
+    if (confirm("Вы действительно хотите выйти из профиля команды? Это вернет вас на экран авторизации.")) {
+      localStorage.removeItem("quest_team");
+      localStorage.removeItem("quest_pin");
+      location.reload();
+    }
+  }
 
   // Вход в систему
   function login() {
