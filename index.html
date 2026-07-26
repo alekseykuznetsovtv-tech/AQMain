@@ -612,7 +612,7 @@
             }
             processServerData(data);
           } else {
-            showMsg("game-msg", data.message, "error");
+            showMsg("game-msg", "Код неверный", "error");
             if (data.lockoutUntil) lockoutUntil = data.lockoutUntil;
             processServerData(data);
           }
